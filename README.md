@@ -19,9 +19,9 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 ## ✨ Features
 
 <p float="center">
-  <img src="screenshots/1.jpg" height="246px" />
-  <img src="screenshots/2.jpg" height="246px" />
-  <img src="screenshots/3.jpg" height="246px" />
+  <img src="screenshots/1.jpg" height="345px" />
+  <img src="screenshots/2.jpg" height="345px" />
+  <img src="screenshots/3.jpg" height="345px" />
 </p>
 
 ### 🎯 Core Functionality
@@ -58,7 +58,6 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 2. Open Firefox and go to `about:debugging`
 3. Click "This Firefox" → "Load Temporary Add-on"
 4. Select the `manifest.json` file
-
 
 ## 🚀 Quick Start
 
@@ -192,9 +191,7 @@ The extension icon shows your current status:
 - Click "Show" next to "Advanced Options"
 - The section is collapsed by default
 
-
 ## 🤝 Contributing
-
 
 1. **Report Bugs**: Open an issue with detailed description
 2. **Feature Requests**: Suggest new features via issues
