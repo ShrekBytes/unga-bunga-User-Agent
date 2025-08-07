@@ -87,7 +87,7 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 - **Random UA**: Select a random user agent from all available
 - **Reset Default**: Return to your browser's default user agent
 
-![Basic Controls](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Basic+Controls)
+![Basic Controls](screenshots/hero.png)
 
 #### Preferences Section
 
@@ -96,7 +96,7 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 - **Source Filter**: Choose from All, Custom, Latest, or Most Common user agents
 - **Smart Random**: Intelligent selection based on your preferences
 
-![Preferences](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Preferences+Section)
+![Preferences](screenshots/preferences.png)
 
 ### Auto Smart Random
 
@@ -104,7 +104,7 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 - **Interval**: Set rotation time (1-60 minutes)
 - **Smart Selection**: Uses your device and browser preferences
 
-![Auto Random](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Auto+Smart+Random)
+![Auto Random](screenshots/smart.png)
 
 ### Custom User Agents
 
@@ -112,13 +112,15 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 - **Remove**: Delete custom user agents with the × button
 - **Persistent**: Custom agents are saved between sessions
 
-![Custom User Agents](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Custom+User+Agents)
+![Custom User Agents](screenshots/custom.png)
 
 ## 🔧 Advanced Features
 
 ### Site-Specific Control
 
 Click "Advanced Options" to access site-specific settings:
+
+![Modes](screenshots/mode.png)
 
 #### All Sites Mode (Default)
 
@@ -138,15 +140,13 @@ Click "Advanced Options" to access site-specific settings:
 - Add sites to the blacklist
 - Excluded sites use your real user agent
 
-![Advanced Options](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Advanced+Options)
-
 ### Site Management
 
 - **Add Sites**: Click "Add Site" and enter domain (e.g., `example.com`)
 - **Remove Sites**: Hover over a site and click the × button
 - **Real-time Updates**: Changes apply immediately
 
-![Site Management](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Site+Management)
+![Site Management](screenshots/mode_add.png)
 
 ## 🎨 Badge Indicators
 
@@ -159,13 +159,15 @@ The extension icon shows your current status:
 | 🔵 WL  | Blue   | Whitelist | Working only on whitelisted sites       |
 | 🟣 BL  | Purple | Blacklist | Working on all sites except blacklisted |
 
-![Badge Examples](https://via.placeholder.com/600x200/2a2a2a/ffffff?text=Badge+Status+Indicators)
+![Badge Examples](screenshots/badge.png)
 
 ## 🔄 Update User Agents
 
 - **Automatic**: User agents are cached for 24 hours
 - **Manual Update**: Click "Update User Agents" to refresh the list
 - **Latest Sources**: Always get the most recent user agent strings
+
+![Update](screenshots/update.png)
 
 ## 🛠️ Troubleshooting
 
@@ -175,7 +177,6 @@ The extension icon shows your current status:
 
 - Reload the extension
 - Check if the extension is enabled
-- Verify Firefox version compatibility
 
 **User agent not changing?**
 
@@ -188,11 +189,6 @@ The extension icon shows your current status:
 - Click "Show" next to "Advanced Options"
 - The section is collapsed by default
 
-### Performance Tips
-
-- Use caching for faster loading
-- Limit custom user agents for better performance
-- Regular updates ensure latest user agents
 
 ## 🤝 Contributing
 
@@ -206,7 +202,7 @@ We welcome contributions! Here's how you can help:
 ### Development Setup
 
 ```bash
-git clone https://github.com/your-username/unga-bunga-User-Agent.git
+git clone https://github.com/ShrekBytes/unga-bunga-User-Agent.git
 cd unga-bunga-User-Agent
 # Load as temporary add-on in Firefox
 ```
@@ -218,12 +214,10 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 ## 🙏 Acknowledgments
 
 - User agent data from [ShrekBytes/useragents-data](https://github.com/ShrekBytes/useragents-data)
-- Firefox WebExtensions API
+- Useragents.me
 - Open source community
 
 ---
-
-**Made with ❤️ for privacy and freedom**
 
 [![GitHub](https://img.shields.io/badge/GitHub-View%20on%20GitHub-blue?style=for-the-badge&logo=github)](https://github.com/your-username/unga-bunga-User-Agent)
 [![License](https://img.shields.io/badge/License-GPL%20v3-green?style=for-the-badge)](LICENSE)
