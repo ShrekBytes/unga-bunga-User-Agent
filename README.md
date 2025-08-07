@@ -109,7 +109,23 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 1. **Enable the Extension**
 
    - Click the extension icon in your toolbar
+   - Togglhe extension icon in your toolbar
    - Toggle the "Enabled" switch to ON
+   - The badge will turn green indicating active status
+
+2. **Set Your First User Agent**
+
+   - Choose your preferred device (Android, iPhone, etc.)
+   - Select your preferred browser (Chrome, Firefox, etc.)
+   - Click "Smart Random" to get a matching user agent
+   - Click "Apply" to activate it
+
+3. **Verify It's Working**
+   - Visit any website
+   - The extension will automatically spoof your user agent
+   - Check the badge color to confirm active status
+
+![Quick Start Guide](images/quick-start-guide.png)e the "Enabled" switch to ON
    - The badge will turn green indicating active status
 
 2. **Set Your First User Agent**
@@ -128,8 +144,6 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 
 ## 📖 Usage Guide
 
-### Basic User Agent Control
-
 #### Setting a Custom User Agent
 
 1. Open the extension popup
@@ -139,7 +153,6 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 #### Using Random User Agents
 
 1. Click "Random UA" for a completely random user agent
-2. Click "Smart Random" for a filtered random selection
 3. Use "Reset Default" to return to your browser's original user agent
 
 ![Basic Controls](images/basic-controls.png)
@@ -148,21 +161,7 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 
 #### Filtering by Device
 
-- **Android**: Mobile Android devices
-- **iPhone**: iOS mobile devices
-- **iPad**: iOS tablet devices
-- **Linux**: Desktop Linux systems
-- **Mac**: macOS desktop systems
-- **Windows**: Windows desktop systems
-
 #### Filtering by Browser
-
-- **Chrome**: Google Chrome browser
-- **Firefox**: Mozilla Firefox browser
-- **Edge**: Microsoft Edge browser
-- **Opera**: Opera browser
-- **Safari**: Apple Safari browser
-- **Vivaldi**: Vivaldi browser
 
 #### Filtering by Source
 
@@ -190,49 +189,11 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 
 ![Auto-Random Setup](images/auto-random-setup.png)
 
-### Advanced Site Filtering
-
-#### Global Mode (Default)
-
-- User agent spoofing applies to **all websites**
-- No site list management needed
-- Maximum privacy protection
-
-#### Whitelist Mode
-
-- User agent spoofing applies **only to selected sites**
-- Add sites to the whitelist for targeted protection
-- Useful for specific privacy needs
-
-#### Blacklist Mode
-
-- User agent spoofing applies to **all sites except selected ones**
-- Add sites to the blacklist to exclude them
-- Useful when you want to exclude certain sites
-
-#### Managing Site Lists
-
-1. Select your desired mode (Whitelist/Blacklist)
-2. Click "Add Site" to add a new domain
-3. Enter the domain (e.g., `example.com`)
-4. Click "Add" to confirm
-5. Remove sites by hovering and clicking the × button
-
-![Site Management](images/site-management.png)
 
 ### Custom User Agents
 
 #### Adding Custom User Agents
-
-1. Enter your user agent string in the custom input field
-2. Click "Add" to save it
-3. Your custom user agent will appear in the list
-4. It will be included in smart random selection
-
 #### Managing Custom User Agents
-
-- **View**: All custom user agents are listed below the input
-- **Remove**: Hover over a custom user agent and click × to delete
 - **Integration**: Custom user agents work with all features
 
 ![Custom User Agents Management](images/custom-ua-management.png)
@@ -248,7 +209,6 @@ The extension icon displays a colored badge to show current status:
 | 🔵 WL  | Blue   | Whitelist | Working only on whitelisted sites       |
 | 🟣 BL  | Purple | Blacklist | Working on all sites except blacklisted |
 
-![Badge Status Table](images/badge-status-table.png)
 
 ## 🔒 Privacy & Security
 
