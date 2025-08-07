@@ -23,14 +23,12 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 - **Smart User Agent Spoofing**: Automatically change your browser's user agent string
 - **Anti-Detection**: Advanced features to prevent websites from detecting spoofing
 - **Real-time Updates**: Live user agent changes without page refresh
-- **Caching System**: Fast loading with intelligent caching of user agent lists
 
 ### 🎨 Modern Interface
 
 - **Clean, Minimal Design**: Modern dark theme with intuitive controls
 - **Responsive Layout**: Optimized for all screen sizes
 - **Visual Feedback**: Toast notifications and status indicators
-- **Collapsible Sections**: Advanced features hidden by default
 
 ### 🔧 Advanced Options
 
