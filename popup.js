@@ -230,25 +230,45 @@ class PopupUI {
     const sites = this.mode === 'whitelist' ? this.whitelist : this.blacklist;
     
     if (this.mode === 'all') {
-      container.innerHTML = '<div class="loading">Select blacklist or whitelist mode to manage sites</div>';
+      container.textContent = '';
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'loading';
+      loadingDiv.textContent = 'Select blacklist or whitelist mode to manage sites';
+      container.appendChild(loadingDiv);
       return;
     }
     
     if (sites.length === 0) {
-      container.innerHTML = '<div class="loading">No sites added</div>';
+      container.textContent = '';
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'loading';
+      loadingDiv.textContent = 'No sites added';
+      container.appendChild(loadingDiv);
       return;
     }
 
-    const html = sites.map(site => {
-      return `
-        <div class="site-item" data-site="${site}">
-          <div class="site-text">${site}</div>
-          <button class="site-remove-btn" data-site="${site}">×</button>
-        </div>
-      `;
-    }).join('');
-
-    container.innerHTML = html;
+    // Clear container safely
+    container.textContent = '';
+    
+    // Create elements safely
+    sites.forEach(site => {
+      const siteItem = document.createElement('div');
+      siteItem.className = 'site-item';
+      siteItem.dataset.site = site;
+      
+      const siteText = document.createElement('div');
+      siteText.className = 'site-text';
+      siteText.textContent = site;
+      
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'site-remove-btn';
+      removeBtn.textContent = '×';
+      removeBtn.dataset.site = site;
+      
+      siteItem.appendChild(siteText);
+      siteItem.appendChild(removeBtn);
+      container.appendChild(siteItem);
+    });
 
     // Add click listeners for remove buttons
     container.querySelectorAll('.site-remove-btn').forEach(btn => {
@@ -438,20 +458,36 @@ class PopupUI {
     const container = document.getElementById('customUAList');
     
     if (this.customUserAgents.length === 0) {
-      container.innerHTML = '<div class="loading">No custom user agents</div>';
+      container.textContent = '';
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'loading';
+      loadingDiv.textContent = 'No custom user agents';
+      container.appendChild(loadingDiv);
       return;
     }
 
-    const html = this.customUserAgents.map(ua => {
-      return `
-        <div class="user-agent-item" data-ua="${ua.ua}">
-          <div class="user-agent-text">${ua.ua}</div>
-          <button class="remove-btn" data-ua="${ua.ua}">×</button>
-        </div>
-      `;
-    }).join('');
-
-    container.innerHTML = html;
+    // Clear container safely
+    container.textContent = '';
+    
+    // Create elements safely
+    this.customUserAgents.forEach(ua => {
+      const item = document.createElement('div');
+      item.className = 'user-agent-item';
+      item.dataset.ua = ua.ua;
+      
+      const text = document.createElement('div');
+      text.className = 'user-agent-text';
+      text.textContent = ua.ua;
+      
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.textContent = '×';
+      removeBtn.dataset.ua = ua.ua;
+      
+      item.appendChild(text);
+      item.appendChild(removeBtn);
+      container.appendChild(item);
+    });
 
     // Add click listeners for remove buttons
     container.querySelectorAll('.remove-btn').forEach(btn => {
@@ -503,13 +539,23 @@ class PopupUI {
     // Update counts
     const globalCount = this.userAgents.length;
     const filteredCount = filteredAgents.length;
-    countContainer.innerHTML = `
-      <span>Filtered: ${filteredCount} user agents</span>
-      <span class="global-count">Global: ${globalCount} user agents</span>
-    `;
+    
+    // Clear and create count elements safely
+    countContainer.textContent = '';
+    const filteredSpan = document.createElement('span');
+    filteredSpan.textContent = `Filtered: ${filteredCount} user agents`;
+    const globalSpan = document.createElement('span');
+    globalSpan.className = 'global-count';
+    globalSpan.textContent = `Global: ${globalCount} user agents`;
+    countContainer.appendChild(filteredSpan);
+    countContainer.appendChild(globalSpan);
 
     if (filteredAgents.length === 0) {
-      container.innerHTML = '<div class="loading">No user agents match your preferences</div>';
+      container.textContent = '';
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'loading';
+      loadingDiv.textContent = 'No user agents match your preferences';
+      container.appendChild(loadingDiv);
       return;
     }
 
@@ -517,18 +563,35 @@ class PopupUI {
     browser.runtime.sendMessage({ action: 'getStatus' }).then(status => {
       const currentUA = status.currentUserAgent;
       
-      const html = filteredAgents.map(ua => {
+      // Clear container safely
+      container.textContent = '';
+      
+      // Create elements safely
+      filteredAgents.forEach(ua => {
         const isSelected = ua.ua === currentUA;
         const isCustom = this.customUserAgents.some(custom => custom.ua === ua.ua);
-        return `
-          <div class="user-agent-item ${isSelected ? 'selected' : ''}" data-ua="${ua.ua}">
-            <div class="user-agent-text">${ua.ua}</div>
-            ${isCustom ? `<button class="remove-btn" data-ua="${ua.ua}">×</button>` : ''}
-          </div>
-        `;
-      }).join('');
-
-      container.innerHTML = html;
+        
+        const item = document.createElement('div');
+        item.className = 'user-agent-item';
+        if (isSelected) item.classList.add('selected');
+        item.dataset.ua = ua.ua;
+        
+        const text = document.createElement('div');
+        text.className = 'user-agent-text';
+        text.textContent = ua.ua;
+        
+        item.appendChild(text);
+        
+        if (isCustom) {
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'remove-btn';
+          removeBtn.textContent = '×';
+          removeBtn.dataset.ua = ua.ua;
+          item.appendChild(removeBtn);
+        }
+        
+        container.appendChild(item);
+      });
 
       // Add click listeners
       container.querySelectorAll('.user-agent-item').forEach(item => {

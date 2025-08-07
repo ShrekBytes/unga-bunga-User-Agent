@@ -48,10 +48,10 @@ class UserAgentSpoofer {
     this.updateBadge();
   }
 
-  updateBadge() {
+    updateBadge() {
     let badgeText = '';
     let badgeColor = '#666666'; // Default gray
-
+    
     if (!this.isEnabled) {
       badgeText = 'OFF';
       badgeColor = '#ef4444'; // Red for disabled
@@ -79,9 +79,6 @@ class UserAgentSpoofer {
       if (typeof browser.browserAction !== 'undefined' && browser.browserAction.setBadgeText) {
         browser.browserAction.setBadgeText({ text: badgeText });
         browser.browserAction.setBadgeBackgroundColor({ color: badgeColor });
-      } else if (typeof browser.action !== 'undefined' && browser.action.setBadgeText) {
-        browser.action.setBadgeText({ text: badgeText });
-        browser.action.setBadgeBackgroundColor({ color: badgeColor });
       }
     } catch (error) {
       console.error('Error updating badge:', error);
