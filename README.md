@@ -189,7 +189,6 @@ The extension icon shows your current status:
 
 ## 🤝 Contributing
 
-We welcome contributions! Here's how you can help:
 
 1. **Report Bugs**: Open an issue with detailed description
 2. **Feature Requests**: Suggest new features via issues
