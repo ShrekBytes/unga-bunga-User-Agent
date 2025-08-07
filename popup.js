@@ -11,7 +11,6 @@ class PopupUI {
     this.mode = 'all';
     this.whitelist = [];
     this.blacklist = [];
-    this.intervalTimer = null;
     this.init();
   }
 
@@ -57,9 +56,12 @@ class PopupUI {
     });
 
     document.getElementById('intervalMinutes').addEventListener('input', (e) => {
-      if (this.intervalTimer) {
-        this.startInterval();
-      }
+      let val = parseInt(e.target.value);
+      if (isNaN(val) || val < 1) val = 1;
+      if (val > 60) val = 60;
+      e.target.value = val;
+      browser.storage.local.set({ intervalMinutes: val });
+      // Background script will handle the timer restart
     });
 
     // Custom user agent input
@@ -79,7 +81,7 @@ class PopupUI {
       if (ua) {
         await browser.runtime.sendMessage({ action: 'setUserAgent', userAgent: ua });
         await this.loadStatus();
-        this.renderUserAgentList();
+        await this.renderUserAgentList();
         this.showToast('User agent applied successfully', 'success');
       } else {
         this.showToast('Please enter a user agent', 'warning');
@@ -88,7 +90,7 @@ class PopupUI {
     document.getElementById('resetDefaultUA').addEventListener('click', async () => {
       await browser.runtime.sendMessage({ action: 'setUserAgent', userAgent: null });
       await this.loadStatus();
-      this.renderUserAgentList();
+      await this.renderUserAgentList();
       this.showToast('Reset to default user agent', 'info');
     });
 
@@ -301,31 +303,30 @@ class PopupUI {
       }
       if (result.enableInterval) {
         document.getElementById('enableInterval').checked = true;
-        this.startInterval();
       }
 
       // Add change listeners
       document.querySelectorAll('input[name="preferredDevice"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
+        radio.addEventListener('change', async (e) => {
           this.preferences.device = e.target.value;
           browser.storage.local.set({ preferredDevice: e.target.value });
-          this.renderUserAgentList();
+          await this.renderUserAgentList();
         });
       });
 
       document.querySelectorAll('input[name="preferredBrowser"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
+        radio.addEventListener('change', async (e) => {
           this.preferences.browser = e.target.value;
           browser.storage.local.set({ preferredBrowser: e.target.value });
-          this.renderUserAgentList();
+          await this.renderUserAgentList();
         });
       });
 
       document.querySelectorAll('input[name="preferredSource"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
+        radio.addEventListener('change', async (e) => {
           this.preferences.source = e.target.value;
           browser.storage.local.set({ preferredSource: e.target.value });
-          this.renderUserAgentList();
+          await this.renderUserAgentList();
         });
       });
 
@@ -336,9 +337,7 @@ class PopupUI {
         if (val > 60) val = 60;
         e.target.value = val;
         browser.storage.local.set({ intervalMinutes: val });
-        if (this.intervalTimer) {
-          this.startInterval();
-        }
+        // Background script will handle the timer restart
       });
     } catch (error) {
       console.error('Failed to load preferences:', error);
@@ -365,7 +364,7 @@ class PopupUI {
       const status = await browser.runtime.sendMessage({ action: 'getStatus' });
       this.userAgents = status.userAgents || [];
       this.customUserAgents = status.customUserAgents || [];
-      this.renderUserAgentList();
+      await this.renderUserAgentList();
       this.renderCustomUserAgentList();
     } catch (error) {
       console.error('Failed to load user agents:', error);
@@ -402,6 +401,13 @@ class PopupUI {
 
   async setRandomUserAgent() {
     try {
+      // First check if extension is enabled, if not enable it
+      const status = await browser.runtime.sendMessage({ action: 'getStatus' });
+      if (!status.isEnabled) {
+        await browser.runtime.sendMessage({ action: 'toggleEnabled' });
+        this.showToast('Extension enabled', 'info');
+      }
+
       const response = await browser.runtime.sendMessage({ 
         action: 'getRandomUserAgent'
       });
@@ -411,7 +417,8 @@ class PopupUI {
           userAgent: response.userAgent 
         });
         await this.loadStatus();
-        this.renderUserAgentList();
+        // Pass the selected user agent directly to ensure proper highlighting
+        this.renderUserAgentList(response.userAgent);
         this.showToast('Random user agent applied', 'success');
       }
     } catch (error) {
@@ -512,29 +519,19 @@ class PopupUI {
     }
   }
 
-  renderUserAgentList() {
+  async renderUserAgentList(currentUserAgent = null) {
     const container = document.getElementById('uaList');
     const countContainer = document.getElementById('uaCount');
     
-    // Filter user agents based on current preferences
-    let filteredAgents = this.userAgents;
+    // Get filtered user agents from background script (same logic as smart random)
+    const response = await browser.runtime.sendMessage({
+      action: 'getFilteredUserAgents',
+      device: this.preferences.device,
+      browser: this.preferences.browser,
+      source: this.preferences.source
+    });
     
-    // Filter by source
-    if (this.preferences.source && this.preferences.source !== 'all') {
-      filteredAgents = filteredAgents.filter(ua => ua.source === this.preferences.source);
-    }
-    
-    // Filter by device and browser
-    if (this.preferences.device && this.preferences.browser) {
-      filteredAgents = filteredAgents.filter(ua => {
-        const uaLower = ua.ua.toLowerCase();
-        // Check device match
-        const deviceMatch = this.checkDeviceMatch(uaLower, this.preferences.device);
-        // Check browser match
-        const browserMatch = this.checkBrowserMatch(uaLower, this.preferences.browser);
-        return deviceMatch && browserMatch;
-      });
-    }
+    const filteredAgents = response.userAgents || [];
 
     // Update counts
     const globalCount = this.userAgents.length;
@@ -559,50 +556,59 @@ class PopupUI {
       return;
     }
 
-    // Get current user agent for highlighting
-    browser.runtime.sendMessage({ action: 'getStatus' }).then(status => {
+    // If currentUserAgent is provided, use it directly, otherwise get from status
+    if (currentUserAgent) {
+      this.renderUserAgentItems(container, filteredAgents, currentUserAgent);
+    } else {
+      // Get current user agent for highlighting
+      const status = await browser.runtime.sendMessage({ action: 'getStatus' });
       const currentUA = status.currentUserAgent;
-      
-      // Clear container safely
-      container.textContent = '';
-      
-      // Create elements safely
-      filteredAgents.forEach(ua => {
-        const isSelected = ua.ua === currentUA;
-        const isCustom = this.customUserAgents.some(custom => custom.ua === ua.ua);
-        
-        const item = document.createElement('div');
-        item.className = 'user-agent-item';
-        if (isSelected) item.classList.add('selected');
-        item.dataset.ua = ua.ua;
-        
-        const text = document.createElement('div');
-        text.className = 'user-agent-text';
-        text.textContent = ua.ua;
-        
-        item.appendChild(text);
-        
-        if (isCustom) {
-          const removeBtn = document.createElement('button');
-          removeBtn.className = 'remove-btn';
-          removeBtn.textContent = '×';
-          removeBtn.dataset.ua = ua.ua;
-          item.appendChild(removeBtn);
-        }
-        
-        container.appendChild(item);
-      });
+      this.renderUserAgentItems(container, filteredAgents, currentUA);
+    }
+  }
 
-      // Add click listeners
-      container.querySelectorAll('.user-agent-item').forEach(item => {
-        item.addEventListener('click', (e) => {
-          if (e.target.classList.contains('remove-btn')) {
-            e.stopPropagation();
-            this.removeCustomUserAgent(e.target.dataset.ua);
-            return;
-          }
-          this.selectUserAgent(item.dataset.ua);
-        });
+  renderUserAgentItems(container, filteredAgents, currentUA) {
+    // Clear container safely
+    container.textContent = '';
+    
+    // Create elements safely
+    filteredAgents.forEach(ua => {
+      const isSelected = ua.ua === currentUA;
+      const isCustom = this.customUserAgents.some(custom => custom.ua === ua.ua);
+      
+      const item = document.createElement('div');
+      item.className = 'user-agent-item';
+      if (isSelected) {
+        item.classList.add('selected');
+      }
+      item.dataset.ua = ua.ua;
+      
+      const text = document.createElement('div');
+      text.className = 'user-agent-text';
+      text.textContent = ua.ua;
+      
+      item.appendChild(text);
+      
+      if (isCustom) {
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.textContent = '×';
+        removeBtn.dataset.ua = ua.ua;
+        item.appendChild(removeBtn);
+      }
+      
+      container.appendChild(item);
+    });
+
+    // Add click listeners
+    container.querySelectorAll('.user-agent-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        if (e.target.classList.contains('remove-btn')) {
+          e.stopPropagation();
+          this.removeCustomUserAgent(e.target.dataset.ua);
+          return;
+        }
+        this.selectUserAgent(item.dataset.ua);
       });
     });
   }
@@ -614,49 +620,27 @@ class PopupUI {
         userAgent: userAgent 
       });
       await this.loadStatus();
-      this.renderUserAgentList();
+      await this.renderUserAgentList();
       this.showToast('User agent selected and applied', 'success');
     } catch (error) {
       console.error('Failed to select user agent:', error);
     }
   }
 
-  async applyPreferences() {
-    try {
-      // Save preferences
-      await browser.storage.local.set({
-        preferredDevice: this.preferences.device,
-        preferredBrowser: this.preferences.browser
-      });
-
-      // Filter user agents based on preferences
-      const filteredAgents = this.userAgents.filter(ua => {
-        const uaLower = ua.ua.toLowerCase();
-        
-        // Check device match
-        const deviceMatch = this.checkDeviceMatch(uaLower, this.preferences.device);
-        
-        // Check browser match
-        const browserMatch = this.checkBrowserMatch(uaLower, this.preferences.browser);
-        
-        return deviceMatch && browserMatch;
-      });
-
-      if (filteredAgents.length > 0) {
-        // Select the first matching user agent
-        await this.selectUserAgent(filteredAgents[0].ua);
-      }
-    } catch (error) {
-      console.error('Failed to apply preferences:', error);
-    }
-  }
-
   async smartRandom() {
     try {
+      // First check if extension is enabled, if not enable it
+      const status = await browser.runtime.sendMessage({ action: 'getStatus' });
+      if (!status.isEnabled) {
+        await browser.runtime.sendMessage({ action: 'toggleEnabled' });
+        this.showToast('Extension enabled', 'info');
+      }
+
       const response = await browser.runtime.sendMessage({ 
         action: 'getSmartRandomUserAgent', 
         device: this.preferences.device,
-        browser: this.preferences.browser
+        browser: this.preferences.browser,
+        source: this.preferences.source
       });
       if (response.userAgent) {
         await browser.runtime.sendMessage({ 
@@ -664,7 +648,8 @@ class PopupUI {
           userAgent: response.userAgent 
         });
         await this.loadStatus();
-        this.renderUserAgentList();
+        // Pass the selected user agent directly to ensure proper highlighting
+        await this.renderUserAgentList(response.userAgent);
         this.showToast('Smart random user agent applied', 'success');
       } else {
         this.showToast('No matching user agents found', 'warning');
@@ -675,80 +660,9 @@ class PopupUI {
     }
   }
 
-  checkDeviceMatch(userAgent, preferredDevice) {
-    switch (preferredDevice) {
-      case 'android': return userAgent.includes('android');
-      case 'ios': return userAgent.includes('iphone') || userAgent.includes('ipad');
-      case 'ipad': return userAgent.includes('ipad');
-      case 'linux': return userAgent.includes('linux') && !userAgent.includes('android');
-      case 'mac': return userAgent.includes('macintosh');
-      case 'windows': return userAgent.includes('windows');
-      default: return true;
-    }
-  }
-
-  checkBrowserMatch(userAgent, preferredBrowser) {
-    switch (preferredBrowser) {
-      case 'chrome':
-        // Chrome but NOT Edge, Opera, Vivaldi
-        return userAgent.includes('chrome') &&
-          !userAgent.includes('edg') &&
-          !userAgent.includes('edge') &&
-          !userAgent.includes('opr') &&
-          !userAgent.includes('opera') &&
-          !userAgent.includes('vivaldi');
-      case 'edge':
-        // Edge (Chromium or Legacy)
-        return userAgent.includes('edg/') || userAgent.includes('edge/');
-      case 'opera':
-        // Opera (OPR or Opera)
-        return userAgent.includes('opr/') || userAgent.includes('opera');
-      case 'vivaldi':
-        return userAgent.includes('vivaldi');
-      case 'firefox':
-        return userAgent.includes('firefox') && !userAgent.includes('seamonkey');
-      case 'safari':
-        // Safari but NOT Chrome, Edge, Opera, Vivaldi
-        return userAgent.includes('safari') &&
-          !userAgent.includes('chrome') &&
-          !userAgent.includes('crios') &&
-          !userAgent.includes('edg') &&
-          !userAgent.includes('edge') &&
-          !userAgent.includes('opr') &&
-          !userAgent.includes('opera') &&
-          !userAgent.includes('vivaldi');
-      default:
-        return true;
-    }
-  }
-
   toggleInterval(enabled) {
-    if (enabled) {
-      this.startInterval();
-      browser.storage.local.set({ enableInterval: true });
-    } else {
-      this.stopInterval();
-      browser.storage.local.set({ enableInterval: false });
-    }
-  }
-
-  startInterval() {
-    this.stopInterval(); // Clear any existing timer
-    const minutes = parseInt(document.getElementById('intervalMinutes').value) || 5;
-    const milliseconds = minutes * 60 * 1000;
-    
-    this.intervalTimer = setInterval(() => {
-      this.smartRandom();
-    }, milliseconds);
-    
-    browser.storage.local.set({ intervalMinutes: minutes });
-  }
-
-  stopInterval() {
-    if (this.intervalTimer) {
-      clearInterval(this.intervalTimer);
-      this.intervalTimer = null;
-    }
+    browser.storage.local.set({ enableInterval: enabled });
+    // Background script will handle the timer management
   }
 }
 

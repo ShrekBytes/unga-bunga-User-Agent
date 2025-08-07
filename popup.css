@@ -510,8 +510,8 @@ input:checked + .slider:before {
 /* Minimal Toast Notifications */
 .toast {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  bottom: 20px;
+  left: 20px;
   background: #1a1a1a;
   color: #ffffff;
   padding: 10px 16px;
@@ -519,7 +519,7 @@ input:checked + .slider:before {
   font-size: 12px;
   z-index: 1000;
   opacity: 0;
-  transform: translateX(100%);
+  transform: translateX(-100%);
   transition: 0.2s ease;
   pointer-events: none;
   border: 1px solid #2a2a2a;

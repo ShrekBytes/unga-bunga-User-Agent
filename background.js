@@ -48,7 +48,7 @@ class UserAgentSpoofer {
     this.updateBadge();
   }
 
-    updateBadge() {
+  updateBadge() {
     let badgeText = '';
     let badgeColor = '#666666'; // Default gray
     
@@ -293,10 +293,15 @@ class UserAgentSpoofer {
     return this.userAgents[randomIndex].ua;
   }
 
-  getSmartRandomUserAgent(device, browser) {
-    if (this.userAgents.length === 0) return null;
+  getFilteredUserAgents(device, browser, source = 'all') {
+    if (this.userAgents.length === 0) return [];
     
-    const filteredAgents = this.userAgents.filter(ua => {
+    return this.userAgents.filter(ua => {
+      // Filter by source first
+      if (source && source !== 'all' && ua.source !== source) {
+        return false;
+      }
+      
       const uaLower = ua.ua.toLowerCase();
       
       // Check device match
@@ -307,6 +312,10 @@ class UserAgentSpoofer {
       
       return deviceMatch && browserMatch;
     });
+  }
+
+  getSmartRandomUserAgent(device, browser, source = 'all') {
+    const filteredAgents = this.getFilteredUserAgents(device, browser, source);
     
     if (filteredAgents.length === 0) return null;
     
@@ -318,6 +327,7 @@ class UserAgentSpoofer {
     switch (device) {
       case 'android': return userAgent.includes('android');
       case 'ios': return userAgent.includes('iphone') || userAgent.includes('ipad');
+      case 'ipad': return userAgent.includes('ipad');
       case 'linux': return userAgent.includes('linux') && !userAgent.includes('android');
       case 'mac': return userAgent.includes('macintosh');
       case 'windows': return userAgent.includes('windows');
@@ -327,13 +337,36 @@ class UserAgentSpoofer {
 
   checkBrowserMatch(userAgent, browser) {
     switch (browser) {
-      case 'chrome': return userAgent.includes('chrome') && !userAgent.includes('edg');
-      case 'edge': return userAgent.includes('edg');
-      case 'firefox': return userAgent.includes('firefox');
-      case 'opera': return userAgent.includes('opera');
-      case 'safari': return userAgent.includes('safari') && !userAgent.includes('chrome');
-      case 'vivaldi': return userAgent.includes('vivaldi');
-      default: return true;
+      case 'chrome':
+        // Chrome but NOT Edge, Opera, Vivaldi
+        return userAgent.includes('chrome') &&
+          !userAgent.includes('edg') &&
+          !userAgent.includes('edge') &&
+          !userAgent.includes('opr') &&
+          !userAgent.includes('opera') &&
+          !userAgent.includes('vivaldi');
+      case 'edge':
+        // Edge (Chromium or Legacy)
+        return userAgent.includes('edg/') || userAgent.includes('edge/');
+      case 'opera':
+        // Opera (OPR or Opera)
+        return userAgent.includes('opr/') || userAgent.includes('opera');
+      case 'vivaldi':
+        return userAgent.includes('vivaldi');
+      case 'firefox':
+        return userAgent.includes('firefox') && !userAgent.includes('seamonkey');
+      case 'safari':
+        // Safari but NOT Chrome, Edge, Opera, Vivaldi
+        return userAgent.includes('safari') &&
+          !userAgent.includes('chrome') &&
+          !userAgent.includes('crios') &&
+          !userAgent.includes('edg') &&
+          !userAgent.includes('edge') &&
+          !userAgent.includes('opr') &&
+          !userAgent.includes('opera') &&
+          !userAgent.includes('vivaldi');
+      default:
+        return true;
     }
   }
 
@@ -466,8 +499,13 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ userAgent: randomUA });
       break;
       
+    case 'getFilteredUserAgents':
+      const filteredAgents = spoofer.getFilteredUserAgents(message.device, message.browser, message.source);
+      sendResponse({ userAgents: filteredAgents });
+      break;
+      
     case 'getSmartRandomUserAgent':
-      const smartRandomUA = spoofer.getSmartRandomUserAgent(message.device, message.browser);
+      const smartRandomUA = spoofer.getSmartRandomUserAgent(message.device, message.browser, message.source);
       sendResponse({ userAgent: smartRandomUA });
       break;
       
