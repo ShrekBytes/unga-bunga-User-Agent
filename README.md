@@ -18,6 +18,8 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 
 ## ✨ Features
 
+![basic](screenshots/main.png)
+
 ### 🎯 Core Functionality
 
 - **Smart User Agent Spoofing**: Automatically change your browser's user agent string
