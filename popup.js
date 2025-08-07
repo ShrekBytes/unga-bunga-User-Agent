@@ -8,7 +8,6 @@ class PopupUI {
       browser: 'chrome',
       source: 'all'
     };
-    this.lastAppliedUA = null;
     this.intervalTimer = null;
     this.init();
   }
@@ -75,7 +74,6 @@ class PopupUI {
     document.getElementById('applyUA').addEventListener('click', async () => {
       const ua = document.getElementById('currentUATextarea').value.trim();
       if (ua) {
-        this.lastAppliedUA = ua;
         await browser.runtime.sendMessage({ action: 'setUserAgent', userAgent: ua });
         await this.loadStatus();
         this.renderUserAgentList();
@@ -378,6 +376,7 @@ class PopupUI {
       });
       await this.loadStatus();
       this.renderUserAgentList();
+      this.showToast('User agent selected and applied', 'success');
     } catch (error) {
       console.error('Failed to select user agent:', error);
     }
@@ -441,6 +440,7 @@ class PopupUI {
     switch (preferredDevice) {
       case 'android': return userAgent.includes('android');
       case 'ios': return userAgent.includes('iphone') || userAgent.includes('ipad');
+      case 'ipad': return userAgent.includes('ipad');
       case 'linux': return userAgent.includes('linux') && !userAgent.includes('android');
       case 'mac': return userAgent.includes('macintosh');
       case 'windows': return userAgent.includes('windows');
@@ -450,13 +450,36 @@ class PopupUI {
 
   checkBrowserMatch(userAgent, preferredBrowser) {
     switch (preferredBrowser) {
-      case 'chrome': return userAgent.includes('chrome') && !userAgent.includes('edg');
-      case 'edge': return userAgent.includes('edg');
-      case 'firefox': return userAgent.includes('firefox');
-      case 'opera': return userAgent.includes('opera');
-      case 'safari': return userAgent.includes('safari') && !userAgent.includes('chrome');
-      case 'vivaldi': return userAgent.includes('vivaldi');
-      default: return true;
+      case 'chrome':
+        // Chrome but NOT Edge, Opera, Vivaldi
+        return userAgent.includes('chrome') &&
+          !userAgent.includes('edg') &&
+          !userAgent.includes('edge') &&
+          !userAgent.includes('opr') &&
+          !userAgent.includes('opera') &&
+          !userAgent.includes('vivaldi');
+      case 'edge':
+        // Edge (Chromium or Legacy)
+        return userAgent.includes('edg/') || userAgent.includes('edge/');
+      case 'opera':
+        // Opera (OPR or Opera)
+        return userAgent.includes('opr/') || userAgent.includes('opera');
+      case 'vivaldi':
+        return userAgent.includes('vivaldi');
+      case 'firefox':
+        return userAgent.includes('firefox') && !userAgent.includes('seamonkey');
+      case 'safari':
+        // Safari but NOT Chrome, Edge, Opera, Vivaldi
+        return userAgent.includes('safari') &&
+          !userAgent.includes('chrome') &&
+          !userAgent.includes('crios') &&
+          !userAgent.includes('edg') &&
+          !userAgent.includes('edge') &&
+          !userAgent.includes('opr') &&
+          !userAgent.includes('opera') &&
+          !userAgent.includes('vivaldi');
+      default:
+        return true;
     }
   }
 

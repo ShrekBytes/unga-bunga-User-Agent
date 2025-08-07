@@ -36,87 +36,114 @@ class UserAgentSpoofer {
 
   async fetchUserAgents() {
     try {
-      // Fetch all user agent sources
-      const urls = [
-        // Most Common
-        'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/common/desktop.json',
-        'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/common/mobile.json',
-        // Latest
-        'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/android.json',
-        'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/ipad.json',
-        'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/iphone.json',
-        'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/linux.json',
-        'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/mac.json',
-        'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/windows.json'
-      ];
+      // Caching: check if we have a recent cache (24h)
+      const CACHE_KEY = 'userAgentCache';
+      const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+      const cache = await browser.storage.local.get([CACHE_KEY]);
+      const now = Date.now();
+      let useCache = false;
+      let cachedData = null;
+      if (cache[CACHE_KEY] && cache[CACHE_KEY].timestamp && (now - cache[CACHE_KEY].timestamp < CACHE_TTL)) {
+        cachedData = cache[CACHE_KEY].data;
+        useCache = true;
+      }
 
-      const responses = await Promise.all(urls.map(url => fetch(url)));
-      const data = await Promise.all(responses.map(response => response.json()));
+      let data;
+      if (useCache) {
+        data = cachedData;
+      } else {
+        // Fetch all user agent sources
+        const urls = [
+          // Most Common
+          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/common/desktop.json',
+          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/common/mobile.json',
+          // Latest
+          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/android.json',
+          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/ipad.json',
+          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/iphone.json',
+          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/linux.json',
+          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/mac.json',
+          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/windows.json'
+        ];
+        const responses = await Promise.all(urls.map(url => fetch(url)));
+        data = await Promise.all(responses.map(response => response.json()));
+        // Save to cache
+        await browser.storage.local.set({
+          [CACHE_KEY]: {
+            timestamp: now,
+            data: data
+          }
+        });
+      }
 
       // Process and tag user agents
-      this.userAgents = [];
-      
+      const userAgents = [];
       // Process most common
       if (data[0] && data[0].user_agents) {
-        data[0].user_agents.forEach(ua => {
-          this.userAgents.push({
-            ua: ua,
-            source: 'most_common',
-            device: 'desktop',
-            pct: 100
-          });
-        });
+        for (const ua of data[0].user_agents) {
+          userAgents.push({ ua, source: 'most_common', device: 'desktop' });
+        }
       }
-      
       if (data[1] && data[1].user_agents) {
-        data[1].user_agents.forEach(ua => {
-          this.userAgents.push({
-            ua: ua,
-            source: 'most_common',
-            device: 'mobile',
-            pct: 100
-          });
-        });
+        for (const ua of data[1].user_agents) {
+          userAgents.push({ ua, source: 'most_common', device: 'mobile' });
+        }
       }
-
       // Process latest
       const latestDevices = ['android', 'ipad', 'iphone', 'linux', 'mac', 'windows'];
       for (let i = 2; i < data.length; i++) {
         if (data[i] && data[i].user_agents) {
-          data[i].user_agents.forEach(ua => {
-            this.userAgents.push({
-              ua: ua,
-              source: 'latest',
-              device: latestDevices[i - 2],
-              pct: 100
-            });
-          });
+          for (const ua of data[i].user_agents) {
+            userAgents.push({ ua, source: 'latest', device: latestDevices[i - 2] });
+          }
         }
       }
-
       // Add custom user agents
-      this.userAgents.push(...this.customUserAgents.map(ua => ({ ...ua, source: 'custom' })));
+      userAgents.push(...this.customUserAgents.map(ua => ({ ...ua, source: 'custom' })));
+      this.userAgents = userAgents;
     } catch (error) {
       console.error('Failed to fetch user agents:', error);
       // Fallback to basic user agents
       this.userAgents = [
         {
-          ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
           source: 'fallback',
-          device: 'windows',
-          pct: 100
+          device: 'windows'
         },
         {
-          ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
           source: 'fallback',
-          device: 'mac',
-          pct: 100
+          device: 'mac'
         },
         {
-          ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1.2 Mobile/15E148 Safari/604.1',
+          ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
           source: 'fallback',
-          device: 'iphone',
-          pct: 100
+          device: 'iphone'
+        },
+        {
+          ua: 'Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36',
+          source: 'fallback',
+          device: 'android'
+        },
+        {
+          ua: 'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+          source: 'fallback',
+          device: 'ipad'
+        },
+        {
+          ua: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+          source: 'fallback',
+          device: 'linux'
+        },
+        {
+          ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:142.0) Gecko/20100101 Firefox/142.0',
+          source: 'fallback',
+          device: 'windows'
+        },
+        {
+          ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13.5; rv:142.0) Gecko/20100101 Firefox/142.0',
+          source: 'fallback',
+          device: 'mac'
         }
       ];
     }
@@ -156,8 +183,7 @@ class UserAgentSpoofer {
 
   async addCustomUserAgent(userAgent) {
     const customUA = {
-      ua: userAgent,
-      pct: 100
+      ua: userAgent
     };
     
     this.customUserAgents.push(customUA);
@@ -174,17 +200,8 @@ class UserAgentSpoofer {
   getRandomUserAgent() {
     if (this.userAgents.length === 0) return null;
     
-    const totalWeight = this.userAgents.reduce((sum, ua) => sum + ua.pct, 0);
-    let random = Math.random() * totalWeight;
-    
-    for (const ua of this.userAgents) {
-      random -= ua.pct;
-      if (random <= 0) {
-        return ua.ua;
-      }
-    }
-    
-    return this.userAgents[0].ua;
+    const randomIndex = Math.floor(Math.random() * this.userAgents.length);
+    return this.userAgents[randomIndex].ua;
   }
 
   getSmartRandomUserAgent(device, browser) {
@@ -204,17 +221,8 @@ class UserAgentSpoofer {
     
     if (filteredAgents.length === 0) return null;
     
-    const totalWeight = filteredAgents.reduce((sum, ua) => sum + ua.pct, 0);
-    let random = Math.random() * totalWeight;
-    
-    for (const ua of filteredAgents) {
-      random -= ua.pct;
-      if (random <= 0) {
-        return ua.ua;
-      }
-    }
-    
-    return filteredAgents[0].ua;
+    const randomIndex = Math.floor(Math.random() * filteredAgents.length);
+    return filteredAgents[randomIndex].ua;
   }
 
   checkDeviceMatch(userAgent, device) {
