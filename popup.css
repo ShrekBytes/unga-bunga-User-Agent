@@ -1,0 +1,594 @@
+/* Minimal Dark UI Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 400px;
+  min-height: 500px;
+  background: #1a1a1a;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.container {
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #333;
+}
+
+.header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-label {
+  font-size: 12px;
+  color: #ccc;
+}
+
+/* Toggle Switch */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #333;
+  transition: 0.2s;
+  border-radius: 2px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background: #666;
+  transition: 0.2s;
+  border-radius: 1px;
+}
+
+input:checked + .slider {
+  background: #007acc;
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+  background: #fff;
+}
+
+/* Sections */
+.section {
+  margin-bottom: 20px;
+}
+
+.section h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+/* User Agent Display */
+.user-agent-display {
+  background: #2a2a2a;
+  border: 1px solid #333;
+  padding: 12px;
+  border-radius: 2px;
+  min-height: 40px;
+  word-break: break-all;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.placeholder {
+  color: #666;
+  font-style: italic;
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 16px;
+  border: 1px solid #333;
+  background: #2a2a2a;
+  color: #e0e0e0;
+  cursor: pointer;
+  font-size: 12px;
+  border-radius: 2px;
+  transition: 0.2s;
+}
+
+.btn:hover {
+  background: #3a3a3a;
+  border-color: #444;
+}
+
+.btn:active {
+  background: #222;
+}
+
+.btn-primary {
+  background: #007acc;
+  border-color: #007acc;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #005a9e;
+  border-color: #005a9e;
+}
+
+.btn-secondary {
+  background: #2a2a2a;
+  border-color: #333;
+}
+
+.btn-secondary:hover {
+  background: #3a3a3a;
+  border-color: #444;
+}
+
+/* Removed update button styling to keep it minimal */
+
+.button-group {
+  display: flex;
+  gap: 8px;
+}
+
+/* Filter Tabs */
+.filter-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.tab-btn {
+  padding: 6px 12px;
+  border: 1px solid #333;
+  background: #2a2a2a;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 11px;
+  border-radius: 2px;
+  transition: 0.2s;
+}
+
+.tab-btn:hover {
+  background: #3a3a3a;
+}
+
+.tab-btn.active {
+  background: #007acc;
+  border-color: #007acc;
+  color: #fff;
+}
+
+/* User Agent List */
+.user-agent-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #333;
+  border-radius: 2px;
+  background: #2a2a2a;
+  margin: 16px 0;
+}
+
+.user-agent-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid #333;
+  cursor: pointer;
+  transition: 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.user-agent-item:hover {
+  background: #3a3a3a;
+}
+
+.user-agent-item:last-child {
+  border-bottom: none;
+}
+
+.user-agent-item.selected {
+  background: #007acc;
+  color: #fff;
+}
+
+.user-agent-text {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 10px;
+  line-height: 1.2;
+  word-break: break-all;
+  flex: 1;
+  margin-right: 8px;
+}
+
+.user-agent-meta {
+  font-size: 10px;
+  color: #888;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+
+.user-agent-item.selected .user-agent-meta {
+  color: #ccc;
+}
+
+.remove-btn {
+  background: none;
+  border: none;
+  color: #ff6b6b;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 1px;
+  opacity: 0;
+  transition: 0.2s;
+}
+
+.user-agent-item:hover .remove-btn {
+  opacity: 1;
+}
+
+.remove-btn:hover {
+  background: #ff6b6b;
+  color: #fff;
+}
+
+.loading {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+/* Input Group */
+.input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #333;
+  background: #2a2a2a;
+  color: #e0e0e0;
+  font-size: 12px;
+  border-radius: 2px;
+  font-family: inherit;
+}
+
+/* Removed select styling since we no longer have the type dropdown */
+
+/* Preferences */
+.preferences-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.preference-column h3 {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ccc;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 0;
+  font-size: 12px;
+  color: #e0e0e0;
+  transition: 0.2s;
+}
+
+.radio-option:hover {
+  color: #fff;
+}
+
+.radio-option input[type="radio"] {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #333;
+  border-radius: 50%;
+  background: #2a2a2a;
+  cursor: pointer;
+  position: relative;
+  transition: 0.2s;
+}
+
+.radio-option input[type="radio"]:checked {
+  border-color: #007acc;
+  background: #007acc;
+}
+
+.radio-option input[type="radio"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 6px;
+  height: 6px;
+  background: #fff;
+  border-radius: 50%;
+}
+
+.radio-option input[type="radio"]:hover {
+  border-color: #444;
+}
+
+.preference-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #007acc;
+  background: #3a3a3a;
+}
+
+.input::placeholder {
+  color: #666;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #2a2a2a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 1px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+} 
+
+.user-agent-editable {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ua-textarea {
+  width: 100%;
+  min-height: 48px;
+  max-height: 120px;
+  resize: vertical;
+  background: #2a2a2a;
+  color: #e0e0e0;
+  border: 1px solid #333;
+  border-radius: 2px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  padding: 8px;
+  line-height: 1.3;
+}
+
+.ua-textarea:focus {
+  outline: none;
+  border-color: #007acc;
+  background: #23272e;
+}
+
+.ua-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Interval Section */
+.interval-section {
+  margin-top: 12px;
+  padding: 12px;
+  background: #2a2a2a;
+  border: 1px solid #333;
+  border-radius: 2px;
+}
+
+.interval-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.interval-toggle {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 16px;
+}
+
+.interval-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #333;
+  transition: 0.2s;
+  border-radius: 8px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 2px;
+  bottom: 2px;
+  background: #666;
+  transition: 0.2s;
+  border-radius: 50%;
+}
+
+.interval-toggle input:checked + .toggle-slider {
+  background: #007acc;
+}
+
+.interval-toggle input:checked + .toggle-slider:before {
+  transform: translateX(16px);
+  background: #fff;
+}
+
+.interval-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ccc;
+}
+
+/* Removed interval-settings since everything is now in the header */
+
+.interval-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.interval-input {
+  width: 50px;
+  padding: 4px 6px;
+  border: 1px solid #333;
+  background: #1a1a1a;
+  color: #e0e0e0;
+  font-size: 11px;
+  border-radius: 2px;
+  text-align: center;
+}
+
+.interval-input:focus {
+  outline: none;
+  border-color: #007acc;
+}
+
+.interval-unit {
+  font-size: 10px;
+  color: #888;
+}
+
+/* Toast Notifications */
+.toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  background: #2d5a2d;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 2px;
+  font-size: 12px;
+  z-index: 1000;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.toast.success {
+  background: #2d5a2d;
+  border: 1px solid #4a7c4a;
+}
+
+.toast.info {
+  background: #007acc;
+  border: 1px solid #005a9e;
+}
+
+.toast.warning {
+  background: #5a4a2d;
+  border: 1px solid #7c6a4a;
+}
+
+/* User Agent Count */
+.user-agent-count {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #888;
+  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.global-count {
+  color: #666;
+}
+
+/* Custom User Agent List */
+.custom-user-agent-list {
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid #333;
+  border-radius: 2px;
+  background: #2a2a2a;
+  margin-top: 12px;
+} 

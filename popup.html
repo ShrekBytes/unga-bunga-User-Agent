@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Unga Bunga User-Agent</h1>
+      <div class="toggle-container">
+        <label class="toggle">
+          <input type="checkbox" id="enabled">
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label">Enabled</span>
+      </div>
+    </div>
+    
+    <div id="toast" class="toast"></div>
+
+    <div class="section">
+      <h2>Current User Agent</h2>
+      <div class="user-agent-editable">
+        <textarea id="currentUATextarea" class="ua-textarea" rows="3" spellcheck="false"></textarea>
+        <div class="ua-actions">
+          <button id="applyUA" class="btn btn-primary">Apply</button>
+          <button id="randomBtn" class="btn btn-secondary">Random UA</button>
+          <button id="resetDefaultUA" class="btn btn-secondary">Reset Default</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Preferences</h2>
+      <div class="preferences-grid">
+        <div class="preference-column">
+          <h3>Device</h3>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="preferredDevice" value="android" checked>
+              <span>Android</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preferredDevice" value="ios">
+              <span>iOS</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preferredDevice" value="linux">
+              <span>Linux</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preferredDevice" value="mac">
+              <span>Mac</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preferredDevice" value="windows">
+              <span>Windows</span>
+            </label>
+          </div>
+        </div>
+        <div class="preference-column">
+          <h3>Browser</h3>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="preferredBrowser" value="chrome" checked>
+              <span>Chrome</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preferredBrowser" value="edge">
+              <span>Edge</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preferredBrowser" value="firefox">
+              <span>Firefox</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preferredBrowser" value="opera">
+              <span>Opera</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preferredBrowser" value="safari">
+              <span>Safari</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preferredBrowser" value="vivaldi">
+              <span>Vivaldi</span>
+            </label>
+          </div>
+        </div>
+        <div class="preference-column">
+          <h3>Source</h3>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="preferredSource" value="all" checked>
+              <span>All</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preferredSource" value="most_common">
+              <span>Most Common</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preferredSource" value="latest">
+              <span>Latest</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preferredSource" value="custom">
+              <span>Custom</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="user-agent-list" id="uaList">
+        <div class="loading">Loading user agents...</div>
+      </div>
+      <div class="user-agent-count" id="uaCount">
+        <span>Filtered: 0 user agents</span>
+        <span class="global-count">Global: 0 user agents</span>
+      </div>
+      <div class="preference-actions">
+        <button id="smartRandomBtn" class="btn btn-secondary">Smart Random</button>
+      </div>
+      <div class="interval-section">
+        <div class="interval-header">
+          <label class="interval-toggle">
+            <input type="checkbox" id="enableInterval">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="interval-title">Auto Smart Random</span>
+          <div class="interval-input-wrapper">
+            <input type="text" id="intervalMinutes" class="interval-input" value="5">
+            <span class="interval-unit">minutes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Custom User Agents</h2>
+      <div class="input-group">
+        <input type="text" id="customUA" placeholder="Enter custom user agent string" class="input">
+        <button id="addCustomBtn" class="btn btn-primary">Add</button>
+      </div>
+      <div class="custom-user-agent-list" id="customUAList">
+        <div class="loading">No custom user agents</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <button id="updateBtn" class="btn btn-secondary" style="width: 100%;">Update User Agents</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html> 

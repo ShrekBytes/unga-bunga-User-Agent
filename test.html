@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Agent Spoofer Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        .test-section {
+            background: #2a2a2a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-section h2 {
+            color: #007acc;
+            margin-bottom: 15px;
+        }
+        .property {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+        }
+        .property:last-child {
+            border-bottom: none;
+        }
+        .property-name {
+            font-weight: 600;
+            color: #ccc;
+        }
+        .property-value {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            color: #888;
+            max-width: 400px;
+            word-break: break-all;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #2d5a2d;
+            border: 1px solid #4a7c4a;
+        }
+        .status.warning {
+            background: #5a4a2d;
+            border: 1px solid #7c6a4a;
+        }
+        .status.error {
+            background: #5a2d2d;
+            border: 1px solid #7c4a4a;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .canvas-test {
+            border: 1px solid #333;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>User Agent Spoofer Test Page</h1>
+    
+    <div class="test-section">
+        <h2>Navigator Properties</h2>
+        <div id="navigator-properties"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Window Objects</h2>
+        <div id="window-objects"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Canvas Fingerprinting Test</h2>
+        <canvas id="testCanvas" width="200" height="100" class="canvas-test"></canvas>
+        <div id="canvas-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>WebGL Fingerprinting Test</h2>
+        <canvas id="webglCanvas" width="200" height="100" class="canvas-test"></canvas>
+        <div id="webgl-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Performance Timing</h2>
+        <div id="performance-result"></div>
+    </div>
+
+    <button onclick="runTests()">Run All Tests</button>
+
+    <script>
+        function displayProperties(containerId, properties) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            for (const [name, value] of Object.entries(properties)) {
+                const div = document.createElement('div');
+                div.className = 'property';
+                div.innerHTML = `
+                    <span class="property-name">${name}:</span>
+                    <span class="property-value">${value}</span>
+                `;
+                container.appendChild(div);
+            }
+        }
+
+        function addStatus(message, type = 'success') {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            document.body.appendChild(statusDiv);
+        }
+
+        function testNavigatorProperties() {
+            const properties = {
+                'userAgent': navigator.userAgent,
+                'platform': navigator.platform,
+                'appVersion': navigator.appVersion,
+                'vendor': navigator.vendor,
+                'product': navigator.product,
+                'productSub': navigator.productSub,
+                'appName': navigator.appName,
+                'appCodeName': navigator.appCodeName
+            };
+            
+            displayProperties('navigator-properties', properties);
+            
+            // Check for inconsistencies
+            const ua = navigator.userAgent.toLowerCase();
+            const platform = navigator.platform.toLowerCase();
+            
+            let issues = [];
+            if (ua.includes('windows') && !platform.includes('win')) {
+                issues.push('Platform mismatch with Windows UA');
+            }
+            if (ua.includes('macintosh') && !platform.includes('mac')) {
+                issues.push('Platform mismatch with Mac UA');
+            }
+            if (ua.includes('linux') && !platform.includes('linux')) {
+                issues.push('Platform mismatch with Linux UA');
+            }
+            
+            if (issues.length > 0) {
+                addStatus('Issues detected: ' + issues.join(', '), 'warning');
+            } else {
+                addStatus('Navigator properties appear consistent', 'success');
+            }
+        }
+
+        function testWindowObjects() {
+            const objects = {
+                'window.chrome': typeof window.chrome,
+                'window.opera': typeof window.opera,
+                'window.safari': typeof window.safari,
+                'window.external': typeof window.external
+            };
+            
+            displayProperties('window-objects', objects);
+        }
+
+        function testCanvasFingerprinting() {
+            const canvas = document.getElementById('testCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Draw something
+            ctx.fillStyle = '#007acc';
+            ctx.fillRect(10, 10, 50, 50);
+            ctx.fillStyle = '#ff6b6b';
+            ctx.fillRect(70, 10, 50, 50);
+            
+            // Get fingerprint
+            const dataURL = canvas.toDataURL();
+            const resultDiv = document.getElementById('canvas-result');
+            resultDiv.innerHTML = `
+                <div class="property">
+                    <span class="property-name">Canvas Data URL:</span>
+                    <span class="property-value">${dataURL.substring(0, 100)}...</span>
+                </div>
+            `;
+            
+            addStatus('Canvas fingerprinting test completed', 'success');
+        }
+
+        function testWebGLFingerprinting() {
+            const canvas = document.getElementById('webglCanvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            
+            if (!gl) {
+                document.getElementById('webgl-result').innerHTML = 
+                    '<div class="status error">WebGL not supported</div>';
+                return;
+            }
+            
+            const vendor = gl.getParameter(gl.VENDOR);
+            const renderer = gl.getParameter(gl.RENDERER);
+            const version = gl.getParameter(gl.VERSION);
+            
+            const resultDiv = document.getElementById('webgl-result');
+            resultDiv.innerHTML = `
+                <div class="property">
+                    <span class="property-name">Vendor:</span>
+                    <span class="property-value">${vendor}</span>
+                </div>
+                <div class="property">
+                    <span class="property-name">Renderer:</span>
+                    <span class="property-value">${renderer}</span>
+                </div>
+                <div class="property">
+                    <span class="property-name">Version:</span>
+                    <span class="property-value">${version}</span>
+                </div>
+            `;
+            
+            addStatus('WebGL fingerprinting test completed', 'success');
+        }
+
+        function testPerformanceTiming() {
+            const entries = performance.getEntries();
+            const fingerprintingEntries = entries.filter(entry => 
+                entry.name.includes('user-agent') || 
+                entry.name.includes('fingerprint') ||
+                entry.name.includes('canvas') ||
+                entry.name.includes('webgl')
+            );
+            
+            const resultDiv = document.getElementById('performance-result');
+            resultDiv.innerHTML = `
+                <div class="property">
+                    <span class="property-name">Total Entries:</span>
+                    <span class="property-value">${entries.length}</span>
+                </div>
+                <div class="property">
+                    <span class="property-name">Fingerprinting Entries:</span>
+                    <span class="property-value">${fingerprintingEntries.length}</span>
+                </div>
+            `;
+            
+            if (fingerprintingEntries.length === 0) {
+                addStatus('No fingerprinting entries detected in performance timing', 'success');
+            } else {
+                addStatus('Fingerprinting entries detected in performance timing', 'warning');
+            }
+        }
+
+        function runTests() {
+            // Clear previous status messages
+            document.querySelectorAll('.status').forEach(el => el.remove());
+            
+            testNavigatorProperties();
+            testWindowObjects();
+            testCanvasFingerprinting();
+            testWebGLFingerprinting();
+            testPerformanceTiming();
+            
+            addStatus('All tests completed!', 'success');
+        }
+
+        // Run tests on page load
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html> 
