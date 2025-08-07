@@ -258,59 +258,11 @@ The extension icon displays a colored badge to show current status:
 - **Local storage only**: All settings are stored locally in your browser
 - **No tracking**: No analytics or tracking mechanisms
 - **Open source**: Full transparency with GPL v3 license
-
-### Security Features
-
 - **Secure caching**: User agent lists are cached locally with 24-hour expiry
 - **Input validation**: All user inputs are validated and sanitized
-- **Error handling**: Graceful error handling without data leaks
 - **Minimal permissions**: Only requests necessary permissions
 
-### Privacy Benefits
 
-- **Fingerprint protection**: Reduces browser fingerprinting
-- **Tracking prevention**: Makes tracking more difficult
-- **Privacy enhancement**: Improves overall online privacy
-- **Customizable protection**: Choose your level of privacy
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-#### Extension Not Working
-
-1. **Check if enabled**: Ensure the toggle switch is ON
-2. **Verify badge color**: Should be green, blue, or purple (not red)
-3. **Check user agent**: Make sure a user agent is selected
-4. **Refresh page**: Try refreshing the current webpage
-
-#### Badge Not Updating
-
-1. **Reload extension**: Go to `about:debugging` and reload the extension
-2. **Check console**: Open browser console (F12) for error messages
-3. **Restart browser**: Close and reopen Firefox
-
-#### Site Filtering Not Working
-
-1. **Check mode**: Ensure you're in the correct mode (Whitelist/Blacklist)
-2. **Verify site list**: Make sure sites are properly added to the list
-3. **Check domain format**: Use format like `example.com` (without http://)
-
-#### Auto-Random Not Working
-
-1. **Check toggle**: Ensure "Auto Smart Random" is enabled
-2. **Verify interval**: Set interval to 1-60 minutes
-3. **Check filters**: Ensure device/browser filters are set
-4. **Wait for interval**: Changes happen at the specified interval
-
-### Getting Help
-
-If you encounter issues not covered here:
-
-1. **Check the console**: Open browser console (F12) for error messages
-2. **Reload the extension**: Go to `about:debugging` and reload
-3. **Report issues**: Create an issue on GitHub with details
-4. **Check permissions**: Ensure the extension has necessary permissions
 
 ## 🤝 Contributing & Support
 
@@ -320,13 +272,6 @@ Found a bug or have a feature request? Open an issue or submit a pull request.
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
-### What This Means
-
-- **Free to use**: You can use this extension for any purpose
-- **Free to modify**: You can modify the code as needed
-- **Free to distribute**: You can share modified versions
-- **Open source**: All code is publicly available
-- **Copyleft**: Modified versions must also be open source
 
 ## 🙏 Acknowledgments
 
