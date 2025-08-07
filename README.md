@@ -53,7 +53,6 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 3. Click "This Firefox" → "Load Temporary Add-on"
 4. Select the `manifest.json` file
 
-![Installation Guide](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Installation+Guide)
 
 ## 🚀 Quick Start
 
@@ -72,7 +71,7 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
    - Your user agent is now active
    - Check the badge color for status confirmation
 
-![Quick Start](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Quick+Start+Guide)
+![Quick Start](screenshots/quick.png)
 
 ## 📖 Usage Guide
 
