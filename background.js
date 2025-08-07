@@ -253,6 +253,79 @@ class UserAgentSpoofer {
 // Initialize the spoofer
 const spoofer = new UserAgentSpoofer();
 
+let autoRandomTimer = null;
+
+async function getPreferences() {
+  const prefs = await browser.storage.local.get([
+    'preferredDevice',
+    'preferredBrowser',
+    'preferredSource',
+    'intervalMinutes',
+    'enableInterval'
+  ]);
+  return {
+    device: prefs.preferredDevice || 'android',
+    browser: prefs.preferredBrowser || 'chrome',
+    source: prefs.preferredSource || 'all',
+    intervalMinutes: prefs.intervalMinutes || 5,
+    enableInterval: prefs.enableInterval || false
+  };
+}
+
+function clearAutoRandomTimer() {
+  if (autoRandomTimer) {
+    clearInterval(autoRandomTimer);
+    autoRandomTimer = null;
+  }
+}
+
+async function startAutoRandomTimer() {
+  clearAutoRandomTimer();
+  const prefs = await getPreferences();
+  if (!prefs.enableInterval) return;
+  let minutes = parseInt(prefs.intervalMinutes);
+  if (isNaN(minutes) || minutes < 1) minutes = 1;
+  if (minutes > 60) minutes = 60;
+  const ms = minutes * 60 * 1000;
+  autoRandomTimer = setInterval(runSmartRandom, ms);
+}
+
+async function runSmartRandom() {
+  const prefs = await getPreferences();
+  // Use the same logic as smartRandom in popup.js
+  const filteredAgents = spoofer.userAgents.filter(ua => {
+    if (prefs.source && prefs.source !== 'all' && ua.source !== prefs.source) return false;
+    const uaLower = ua.ua.toLowerCase();
+    const deviceMatch = spoofer.checkDeviceMatch(uaLower, prefs.device);
+    const browserMatch = spoofer.checkBrowserMatch(uaLower, prefs.browser);
+    return deviceMatch && browserMatch;
+  });
+  if (filteredAgents.length > 0) {
+    const randomUA = filteredAgents[Math.floor(Math.random() * filteredAgents.length)].ua;
+    await spoofer.setUserAgent(randomUA);
+  }
+}
+
+// Listen for storage changes
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && ('enableInterval' in changes || 'intervalMinutes' in changes || 'preferredDevice' in changes || 'preferredBrowser' in changes || 'preferredSource' in changes)) {
+    getPreferences().then(prefs => {
+      if (prefs.enableInterval) {
+        startAutoRandomTimer();
+      } else {
+        clearAutoRandomTimer();
+      }
+    });
+  }
+});
+
+// On background startup, start timer if needed
+getPreferences().then(prefs => {
+  if (prefs.enableInterval) {
+    startAutoRandomTimer();
+  }
+});
+
 // Handle messages from popup and content scripts
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.action) {

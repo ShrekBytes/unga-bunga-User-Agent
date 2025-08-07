@@ -111,12 +111,12 @@ class PopupUI {
         this.preferences.source = result.preferredSource;
         document.querySelector(`input[name="preferredSource"][value="${result.preferredSource}"]`).checked = true;
       }
+      if (result.intervalMinutes) {
+        document.getElementById('intervalMinutes').value = result.intervalMinutes;
+      }
       if (result.enableInterval) {
         document.getElementById('enableInterval').checked = true;
         this.startInterval();
-      }
-      if (result.intervalMinutes) {
-        document.getElementById('intervalMinutes').value = result.intervalMinutes;
       }
 
       // Add change listeners
@@ -142,6 +142,18 @@ class PopupUI {
           browser.storage.local.set({ preferredSource: e.target.value });
           this.renderUserAgentList();
         });
+      });
+
+      // Save intervalMinutes on input
+      document.getElementById('intervalMinutes').addEventListener('input', (e) => {
+        let val = parseInt(e.target.value);
+        if (isNaN(val) || val < 1) val = 1;
+        if (val > 60) val = 60;
+        e.target.value = val;
+        browser.storage.local.set({ intervalMinutes: val });
+        if (this.intervalTimer) {
+          this.startInterval();
+        }
       });
     } catch (error) {
       console.error('Failed to load preferences:', error);
