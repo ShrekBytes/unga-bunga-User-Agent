@@ -592,3 +592,11 @@ input:checked + .slider:before {
   background: #2a2a2a;
   margin-top: 12px;
 } 
+
+.divider {
+  border: none;
+  border-top: 1px solid #222;
+  margin: 24px 0 24px 0;
+  height: 0;
+  background: none;
+} 
