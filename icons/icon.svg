@@ -15,7 +15,5 @@
       Q14 14 4 18
       Q-6 22 -10 0 Z"
       fill="#CCB230" stroke="#8B6B0B" stroke-width="2"/>
-    <!-- Brown tip -->
-    <circle cx="-10" cy="0" r="1.8" fill="#5C3A0D"/>
   </g>
 </svg>
