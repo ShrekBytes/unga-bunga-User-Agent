@@ -2,9 +2,6 @@
 
 A powerful and user-friendly Firefox extension for advanced user agent spoofing with anti-detection features.
 
-![Extension Badge](icons/icon.svg)
-
-[![GitHub](https://img.shields.io/badge/GitHub-View%20on%20GitHub-blue?style=for-the-badge&logo=github)](https://github.com/your-username/unga-bunga-User-Agent)
 [![License](https://img.shields.io/badge/License-GPL%20v3-green?style=for-the-badge)](LICENSE)
 [![Firefox](https://img.shields.io/badge/Firefox-Add--on-orange?style=for-the-badge&logo=firefox)](https://addons.mozilla.org/firefox/addon/unga-bunga-user-agent/)
 
@@ -222,6 +219,4 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ---
 
-[![GitHub](https://img.shields.io/badge/GitHub-View%20on%20GitHub-blue?style=for-the-badge&logo=github)](https://github.com/your-username/unga-bunga-User-Agent)
-[![License](https://img.shields.io/badge/License-GPL%20v3-green?style=for-the-badge)](LICENSE)
-[![Firefox](https://img.shields.io/badge/Firefox-Add--on-orange?style=for-the-badge&logo=firefox)](https://addons.mozilla.org/firefox/addon/unga-bunga-user-agent/)
+![Extension Badge](icons/icon.svg)
