@@ -2,7 +2,7 @@
 
 A powerful and user-friendly Firefox extension for advanced user agent spoofing with anti-detection features.
 
-![Extension Badge](https://via.placeholder.com/400x200/1a1a1a/ffffff?text=Unga+Bunga+User-Agent)
+![Extension Badge](icons/icon.svg)
 
 ## 📋 Table of Contents
 
