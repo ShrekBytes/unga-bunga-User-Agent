@@ -1,126 +1,230 @@
 # Unga Bunga User-Agent
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Firefox Add-on](https://img.shields.io/badge/Firefox-Add--on-orange.svg)](https://addons.mozilla.org/)
+A powerful and user-friendly Firefox extension for advanced user agent spoofing with anti-detection features.
 
-A powerful Firefox extension for user agent spoofing with smart filtering and privacy protection.
+![Extension Badge](https://via.placeholder.com/400x200/1a1a1a/ffffff?text=Unga+Bunga+User-Agent)
 
-![Extension Icon](images/extension-icon.png)
+## 📋 Table of Contents
+
+- [Features](#-features)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Usage Guide](#-usage-guide)
+- [Advanced Features](#-advanced-features)
+- [Badge Indicators](#-badge-indicators)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ## ✨ Features
 
-- **🎯 Smart User Agent Management** - Real-time spoofing with intelligent device/browser matching
-- **🎲 Smart Random Selection** - Filter by device (Android, iPhone, iPad, Linux, Mac, Windows) and browser (Chrome, Firefox, Edge, Opera, Safari, Vivaldi)
-- **⏰ Auto-Random Intervals** - Automatic user agent rotation (1-60 minutes)
-- **🎛️ Advanced Site Filtering** - Global, Whitelist, or Blacklist modes
-- **🛠️ Custom User Agents** - Add and manage your own user agent strings
-- **📊 Visual Status Indicators** - Color-coded badges (Red=OFF, Green=ALL, Blue=WL, Purple=BL)
-- **🚀 Performance & Caching** - 24-hour caching with automatic updates
+### 🎯 Core Functionality
+
+- **Smart User Agent Spoofing**: Automatically change your browser's user agent string
+- **Anti-Detection**: Advanced features to prevent websites from detecting spoofing
+- **Real-time Updates**: Live user agent changes without page refresh
+- **Caching System**: Fast loading with intelligent caching of user agent lists
+
+### 🎨 Modern Interface
+
+- **Clean, Minimal Design**: Modern dark theme with intuitive controls
+- **Responsive Layout**: Optimized for all screen sizes
+- **Visual Feedback**: Toast notifications and status indicators
+- **Collapsible Sections**: Advanced features hidden by default
+
+### 🔧 Advanced Options
+
+- **Multiple Modes**: All sites, Whitelist, or Blacklist operation
+- **Custom User Agents**: Add your own user agent strings
+- **Smart Random**: Intelligent user agent selection based on preferences
+- **Auto-Random**: Automatic user agent rotation at set intervals
 
 ## 📦 Installation
 
-### From Firefox Add-ons Store
+### From Firefox Add-ons Store (Recommended)
 
-1. Visit [Firefox Add-ons Store](https://addons.mozilla.org/)
+1. Visit the Firefox Add-ons store
 2. Search for "Unga Bunga User-Agent"
 3. Click "Add to Firefox"
+4. Confirm the installation
 
-### Manual Installation
+### Manual Installation (Developer)
 
 1. Download the extension files
-2. Open Firefox → `about:debugging` → "This Firefox"
-3. Click "Load Temporary Add-on"
-4. Select `manifest.json`
+2. Open Firefox and go to `about:debugging`
+3. Click "This Firefox" → "Load Temporary Add-on"
+4. Select the `manifest.json` file
+
+![Installation Guide](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Installation+Guide)
 
 ## 🚀 Quick Start
 
-1. **Enable** - Click extension icon and toggle "Enabled" switch
-2. **Select** - Choose device/browser filters and click "Smart Random"
-3. **Apply** - Click "Apply" to activate the user agent
-4. **Verify** - Check the badge color (green = working)
+1. **Enable the Extension**
 
-![Quick Start](images/quick-start.png)
+   - Click the extension icon in your toolbar
+   - Toggle the "Enabled" switch to ON
 
-## 📖 Usage
+2. **Choose a User Agent**
+
+   - Select from the filtered list
+   - Or use "Random UA" for automatic selection
+   - Or use "Smart Random" for intelligent selection
+
+3. **Apply Changes**
+   - Your user agent is now active
+   - Check the badge color for status confirmation
+
+![Quick Start](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Quick+Start+Guide)
+
+## 📖 Usage Guide
 
 ### Basic Controls
 
-- **Random UA** - Get a completely random user agent
-- **Smart Random** - Get filtered random user agent
-- **Reset Default** - Return to original browser user agent
-- **Custom UA** - Enter your own user agent string
+#### Current User Agent Section
 
-### Smart Filtering
+- **Text Area**: View and edit the current user agent string
+- **Apply Button**: Apply the edited user agent
+- **Random UA**: Select a random user agent from all available
+- **Reset Default**: Return to your browser's default user agent
 
-- **Device**: Android, iPhone, iPad, Linux, Mac, Windows
-- **Browser**: Chrome, Firefox, Edge, Opera, Safari, Vivaldi
-- **Source**: All, Custom, Latest, Most Common
+![Basic Controls](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Basic+Controls)
 
-### Auto-Random
+#### Preferences Section
 
-- Enable "Auto Smart Random" toggle
-- Set interval (1-60 minutes)
-- Extension changes user agents automatically
+- **Device Filter**: Choose Android, iPhone, iPad, Linux, Mac, or Windows
+- **Browser Filter**: Select Chrome, Firefox, Edge, Opera, Safari, or Vivaldi
+- **Source Filter**: Choose from All, Custom, Latest, or Most Common user agents
+- **Smart Random**: Intelligent selection based on your preferences
 
-### Site Filtering
+![Preferences](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Preferences+Section)
 
-- **Global Mode** - Apply to all websites
-- **Whitelist Mode** - Apply only to selected sites
-- **Blacklist Mode** - Apply to all sites except selected ones
+### Auto Smart Random
+
+- **Toggle**: Enable/disable automatic user agent rotation
+- **Interval**: Set rotation time (1-60 minutes)
+- **Smart Selection**: Uses your device and browser preferences
+
+![Auto Random](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Auto+Smart+Random)
 
 ### Custom User Agents
 
-- Add your own user agent strings
-- Persistent storage and easy removal
-- Integrates with all features
+- **Add Custom**: Enter your own user agent strings
+- **Remove**: Delete custom user agents with the × button
+- **Persistent**: Custom agents are saved between sessions
 
-## 🎨 Badge Status
+![Custom User Agents](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Custom+User+Agents)
 
-| Badge  | Color  | Status    | Meaning                          |
-| ------ | ------ | --------- | -------------------------------- |
-| 🔴 OFF | Red    | Disabled  | Extension off                    |
-| 🟢 ALL | Green  | All Sites | Working globally                 |
-| 🔵 WL  | Blue   | Whitelist | Working on whitelisted sites     |
-| 🟣 BL  | Purple | Blacklist | Working except blacklisted sites |
+## 🔧 Advanced Features
 
-## 🔒 Privacy & Security
+### Site-Specific Control
 
-- **No data collection** - Extension doesn't collect personal data
-- **Local storage only** - All settings stored locally
-- **No tracking** - No analytics or tracking
-- **Secure caching** - 24-hour local cache
-- **Minimal permissions** - Only necessary permissions
+Click "Advanced Options" to access site-specific settings:
 
-## 🔧 Troubleshooting
+#### All Sites Mode (Default)
+
+- User agent applied to all websites
+- No site list management needed
+- Perfect for general privacy
+
+#### Whitelist Mode
+
+- User agent applied ONLY to specified sites
+- Add sites to the whitelist
+- All other sites use your real user agent
+
+#### Blacklist Mode
+
+- User agent applied to all sites EXCEPT specified ones
+- Add sites to the blacklist
+- Excluded sites use your real user agent
+
+![Advanced Options](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Advanced+Options)
+
+### Site Management
+
+- **Add Sites**: Click "Add Site" and enter domain (e.g., `example.com`)
+- **Remove Sites**: Hover over a site and click the × button
+- **Real-time Updates**: Changes apply immediately
+
+![Site Management](https://via.placeholder.com/600x300/2a2a2a/ffffff?text=Site+Management)
+
+## 🎨 Badge Indicators
+
+The extension icon shows your current status:
+
+| Badge  | Color  | Status    | Description                             |
+| ------ | ------ | --------- | --------------------------------------- |
+| 🔴 OFF | Red    | Disabled  | Extension is turned off                 |
+| 🟢 ALL | Green  | All Sites | Working on all websites                 |
+| 🔵 WL  | Blue   | Whitelist | Working only on whitelisted sites       |
+| 🟣 BL  | Purple | Blacklist | Working on all sites except blacklisted |
+
+![Badge Examples](https://via.placeholder.com/600x200/2a2a2a/ffffff?text=Badge+Status+Indicators)
+
+## 🔄 Update User Agents
+
+- **Automatic**: User agents are cached for 24 hours
+- **Manual Update**: Click "Update User Agents" to refresh the list
+- **Latest Sources**: Always get the most recent user agent strings
+
+## 🛠️ Troubleshooting
 
 ### Common Issues
 
-- **Not working**: Check if enabled (badge should be green/blue/purple)
-- **Badge not updating**: Reload extension in `about:debugging`
-- **Site filtering**: Verify mode and site list
-- **Auto-random**: Check toggle and interval settings
+**Badge not showing?**
 
-### Getting Help
+- Reload the extension
+- Check if the extension is enabled
+- Verify Firefox version compatibility
 
-- Check browser console (F12) for errors
-- Reload extension if needed
-- Open an issue on GitHub
+**User agent not changing?**
+
+- Ensure the extension is enabled
+- Check if the site is in blacklist/whitelist
+- Try refreshing the page
+
+**Advanced options not visible?**
+
+- Click "Show" next to "Advanced Options"
+- The section is collapsed by default
+
+### Performance Tips
+
+- Use caching for faster loading
+- Limit custom user agents for better performance
+- Regular updates ensure latest user agents
 
 ## 🤝 Contributing
 
-Found a bug or have a feature request? Open an issue or submit a pull request.
+We welcome contributions! Here's how you can help:
+
+1. **Report Bugs**: Open an issue with detailed description
+2. **Feature Requests**: Suggest new features via issues
+3. **Code Contributions**: Fork the repository and submit pull requests
+4. **Documentation**: Help improve this README
+
+### Development Setup
+
+```bash
+git clone https://github.com/your-username/unga-bunga-User-Agent.git
+cd unga-bunga-User-Agent
+# Load as temporary add-on in Firefox
+```
 
 ## 📄 License
 
-GNU General Public License v3.0 - see [LICENSE](LICENSE) file.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- **User Agent Database**: [ShrekBytes/useragents-data](https://github.com/ShrekBytes/useragents-data)
-- **User Agent Data**: [useragents.me](https://useragents.me)
+- User agent data from [ShrekBytes/useragents-data](https://github.com/ShrekBytes/useragents-data)
+- Firefox WebExtensions API
+- Open source community
 
 ---
 
-**Made with ❤️ for privacy-conscious users**
+**Made with ❤️ for privacy and freedom**
 
-_Unga Bunga User-Agent - Take control of your browser's identity_
+[![GitHub](https://img.shields.io/badge/GitHub-View%20on%20GitHub-blue?style=for-the-badge&logo=github)](https://github.com/your-username/unga-bunga-User-Agent)
+[![License](https://img.shields.io/badge/License-GPL%20v3-green?style=for-the-badge)](LICENSE)
+[![Firefox](https://img.shields.io/badge/Firefox-Add--on-orange?style=for-the-badge&logo=firefox)](https://addons.mozilla.org/firefox/addon/unga-bunga-user-agent/)
