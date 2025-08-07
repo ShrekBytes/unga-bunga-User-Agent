@@ -19,9 +19,9 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 ## ✨ Features
 
 <p float="center">
-  <img src="screenshots/1.jpg" width="33%" />
-  <img src="screenshots/2.jpg" width="33%" />
-  <img src="screenshots/3.jpg" width="33%" />
+  <img src="screenshots/1.jpg" height="246px" />
+  <img src="screenshots/2.jpg" height="246px" />
+  <img src="screenshots/3.jpg" height="246px" />
 </p>
 
 ### 🎯 Core Functionality
