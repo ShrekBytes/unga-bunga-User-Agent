@@ -8,6 +8,9 @@ class PopupUI {
       browser: 'chrome',
       source: 'all'
     };
+    this.mode = 'all';
+    this.whitelist = [];
+    this.blacklist = [];
     this.intervalTimer = null;
     this.init();
   }
@@ -89,7 +92,171 @@ class PopupUI {
       this.showToast('Reset to default user agent', 'info');
     });
 
-    // Filter tabs (removed since we integrated the list into preferences)
+    // Advanced Options
+    this.setupAdvancedOptions();
+  }
+
+  setupAdvancedOptions() {
+    // Advanced options toggle
+    document.getElementById('advancedToggle').addEventListener('click', () => {
+      this.toggleAdvancedOptions();
+    });
+
+    // Mode selection
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        this.mode = e.target.value;
+        browser.runtime.sendMessage({ action: 'setMode', mode: this.mode });
+        this.updateSiteListVisibility();
+        this.updateSiteListTitle();
+        this.renderSiteList();
+        this.showToast(`Mode changed to ${this.mode}`, 'info');
+      });
+    });
+
+    // Add site button
+    document.getElementById('addSiteBtn').addEventListener('click', () => {
+      this.showSiteInput();
+    });
+
+    // Confirm site button
+    document.getElementById('confirmSiteBtn').addEventListener('click', () => {
+      this.addSite();
+    });
+
+    // Cancel site button
+    document.getElementById('cancelSiteBtn').addEventListener('click', () => {
+      this.hideSiteInput();
+    });
+
+    // Site input enter key
+    document.getElementById('siteInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        this.addSite();
+      }
+    });
+  }
+
+  toggleAdvancedOptions() {
+    const advancedOptions = document.getElementById('advancedOptions');
+    const toggleBtn = document.getElementById('advancedToggle');
+    
+    if (advancedOptions.style.display === 'none') {
+      advancedOptions.style.display = 'block';
+      toggleBtn.textContent = 'Hide';
+    } else {
+      advancedOptions.style.display = 'none';
+      toggleBtn.textContent = 'Show';
+    }
+  }
+
+  updateSiteListVisibility() {
+    const siteListSection = document.getElementById('siteListSection');
+    if (this.mode === 'all') {
+      siteListSection.style.display = 'none';
+    } else {
+      siteListSection.style.display = 'block';
+    }
+  }
+
+  showSiteInput() {
+    document.getElementById('siteInputGroup').style.display = 'flex';
+    document.getElementById('siteInput').focus();
+  }
+
+  hideSiteInput() {
+    document.getElementById('siteInputGroup').style.display = 'none';
+    document.getElementById('siteInput').value = '';
+  }
+
+  async addSite() {
+    const siteInput = document.getElementById('siteInput');
+    const site = siteInput.value.trim();
+    
+    if (!site) {
+      this.showToast('Please enter a site domain', 'warning');
+      return;
+    }
+
+    const listType = this.mode === 'whitelist' ? 'whitelist' : 'blacklist';
+    
+    try {
+      await browser.runtime.sendMessage({ 
+        action: 'addSite', 
+        site: site, 
+        listType: listType 
+      });
+      this.hideSiteInput();
+      await this.loadStatus();
+      this.renderSiteList();
+      this.showToast(`Site added to ${listType}`, 'success');
+    } catch (error) {
+      console.error('Failed to add site:', error);
+      this.showToast('Failed to add site', 'warning');
+    }
+  }
+
+  async removeSite(site) {
+    const listType = this.mode === 'whitelist' ? 'whitelist' : 'blacklist';
+    
+    try {
+      await browser.runtime.sendMessage({ 
+        action: 'removeSite', 
+        site: site, 
+        listType: listType 
+      });
+      await this.loadStatus();
+      this.renderSiteList();
+      this.showToast(`Site removed from ${listType}`, 'info');
+    } catch (error) {
+      console.error('Failed to remove site:', error);
+      this.showToast('Failed to remove site', 'warning');
+    }
+  }
+
+  updateSiteListTitle() {
+    const title = document.getElementById('siteListTitle');
+    if (this.mode === 'whitelist') {
+      title.textContent = 'Whitelisted Sites';
+    } else if (this.mode === 'blacklist') {
+      title.textContent = 'Blacklisted Sites';
+    } else {
+      title.textContent = 'Site Lists';
+    }
+  }
+
+  renderSiteList() {
+    const container = document.getElementById('siteList');
+    const sites = this.mode === 'whitelist' ? this.whitelist : this.blacklist;
+    
+    if (this.mode === 'all') {
+      container.innerHTML = '<div class="loading">Select blacklist or whitelist mode to manage sites</div>';
+      return;
+    }
+    
+    if (sites.length === 0) {
+      container.innerHTML = '<div class="loading">No sites added</div>';
+      return;
+    }
+
+    const html = sites.map(site => {
+      return `
+        <div class="site-item" data-site="${site}">
+          <div class="site-text">${site}</div>
+          <button class="site-remove-btn" data-site="${site}">×</button>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = html;
+
+    // Add click listeners for remove buttons
+    container.querySelectorAll('.site-remove-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeSite(e.target.dataset.site);
+      });
+    });
   }
 
   async loadPreferences() {
@@ -162,6 +329,12 @@ class PopupUI {
     try {
       const status = await browser.runtime.sendMessage({ action: 'getStatus' });
       this.updateUI(status);
+      this.mode = status.mode || 'all';
+      this.whitelist = status.whitelist || [];
+      this.blacklist = status.blacklist || [];
+      this.updateSiteListVisibility();
+      this.updateSiteListTitle();
+      this.renderSiteList();
     } catch (error) {
       console.error('Failed to load status:', error);
     }
@@ -190,6 +363,11 @@ class PopupUI {
     } else {
       currentUATextarea.value = '';
       currentUATextarea.placeholder = 'No user agent selected';
+    }
+
+    // Update mode selection
+    if (status.mode) {
+      document.querySelector(`input[name="mode"][value="${status.mode}"]`).checked = true;
     }
   }
 
@@ -297,8 +475,6 @@ class PopupUI {
       this.showToast('Failed to remove custom user agent', 'warning');
     }
   }
-
-  // Removed setFilter method as it's no longer needed
 
   renderUserAgentList() {
     const container = document.getElementById('uaList');

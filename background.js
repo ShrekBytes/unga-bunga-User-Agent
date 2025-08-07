@@ -5,6 +5,9 @@ class UserAgentSpoofer {
     this.customUserAgents = [];
     this.isEnabled = false;
     this.currentUserAgent = null;
+    this.mode = 'all'; // 'all', 'blacklist', 'whitelist'
+    this.whitelist = [];
+    this.blacklist = [];
     this.init();
   }
 
@@ -12,26 +15,77 @@ class UserAgentSpoofer {
     await this.loadSettings();
     await this.fetchUserAgents();
     this.setupRequestListener();
+    this.updateBadge();
   }
 
   async loadSettings() {
     const result = await browser.storage.local.get([
       'isEnabled',
       'currentUserAgent',
-      'customUserAgents'
+      'customUserAgents',
+      'mode',
+      'whitelist',
+      'blacklist'
     ]);
     
     this.isEnabled = result.isEnabled || false;
     this.currentUserAgent = result.currentUserAgent || null;
     this.customUserAgents = result.customUserAgents || [];
+    this.mode = result.mode || 'all';
+    this.whitelist = result.whitelist || [];
+    this.blacklist = result.blacklist || [];
   }
 
   async saveSettings() {
     await browser.storage.local.set({
       isEnabled: this.isEnabled,
       currentUserAgent: this.currentUserAgent,
-      customUserAgents: this.customUserAgents
+      customUserAgents: this.customUserAgents,
+      mode: this.mode,
+      whitelist: this.whitelist,
+      blacklist: this.blacklist
     });
+    this.updateBadge();
+  }
+
+  updateBadge() {
+    let badgeText = '';
+    let badgeColor = '#666666'; // Default gray
+
+    if (!this.isEnabled) {
+      badgeText = 'OFF';
+      badgeColor = '#ef4444'; // Red for disabled
+    } else {
+      switch (this.mode) {
+        case 'all':
+          badgeText = 'ALL';
+          badgeColor = '#10b981'; // Green for all sites
+          break;
+        case 'whitelist':
+          badgeText = 'WL';
+          badgeColor = '#3b82f6'; // Blue for whitelist
+          break;
+        case 'blacklist':
+          badgeText = 'BL';
+          badgeColor = '#8b5cf6'; // Dark violet for blacklist
+          break;
+        default:
+          badgeText = 'ON';
+          badgeColor = '#10b981'; // Green for enabled
+      }
+    }
+
+    try {
+      if (typeof browser.browserAction !== 'undefined' && browser.browserAction.setBadgeText) {
+        browser.browserAction.setBadgeText({ text: badgeText });
+        browser.browserAction.setBadgeBackgroundColor({ color: badgeColor });
+      } else if (typeof browser.action !== 'undefined' && browser.action.setBadgeText) {
+        browser.action.setBadgeText({ text: badgeText });
+        browser.action.setBadgeBackgroundColor({ color: badgeColor });
+      }
+    } catch (error) {
+      console.error('Error updating badge:', error);
+    }
   }
 
   async fetchUserAgents() {
@@ -156,6 +210,11 @@ class UserAgentSpoofer {
           return {};
         }
 
+        // Check if we should apply user agent based on mode and site lists
+        if (!this.shouldApplyUserAgent(details.url)) {
+          return {};
+        }
+
         const headers = details.requestHeaders.map(header => {
           if (header.name.toLowerCase() === 'user-agent') {
             return { name: header.name, value: this.currentUserAgent };
@@ -168,6 +227,21 @@ class UserAgentSpoofer {
       { urls: ['<all_urls>'] },
       ['blocking', 'requestHeaders']
     );
+  }
+
+  shouldApplyUserAgent(url) {
+    const hostname = new URL(url).hostname;
+    
+    switch (this.mode) {
+      case 'all':
+        return true;
+      case 'blacklist':
+        return !this.blacklist.some(site => hostname.includes(site));
+      case 'whitelist':
+        return this.whitelist.some(site => hostname.includes(site));
+      default:
+        return true;
+    }
   }
 
   async toggleEnabled() {
@@ -194,6 +268,24 @@ class UserAgentSpoofer {
   async removeCustomUserAgent(userAgent) {
     this.customUserAgents = this.customUserAgents.filter(ua => ua.ua !== userAgent);
     this.userAgents = this.userAgents.filter(ua => ua.ua !== userAgent);
+    await this.saveSettings();
+  }
+
+  async setMode(mode) {
+    this.mode = mode;
+    await this.saveSettings();
+  }
+
+  async addSite(site, listType) {
+    const cleanSite = site.toLowerCase().trim();
+    if (cleanSite && !this[listType].includes(cleanSite)) {
+      this[listType].push(cleanSite);
+      await this.saveSettings();
+    }
+  }
+
+  async removeSite(site, listType) {
+    this[listType] = this[listType].filter(s => s !== site);
     await this.saveSettings();
   }
 
@@ -253,7 +345,10 @@ class UserAgentSpoofer {
       isEnabled: this.isEnabled,
       currentUserAgent: this.currentUserAgent,
       userAgents: this.userAgents,
-      customUserAgents: this.customUserAgents
+      customUserAgents: this.customUserAgents,
+      mode: this.mode,
+      whitelist: this.whitelist,
+      blacklist: this.blacklist
     };
   }
 }
@@ -355,6 +450,18 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
     case 'removeCustomUserAgent':
       spoofer.removeCustomUserAgent(message.userAgent).then(() => sendResponse({ success: true }));
+      return true;
+      
+    case 'setMode':
+      spoofer.setMode(message.mode).then(() => sendResponse({ success: true }));
+      return true;
+      
+    case 'addSite':
+      spoofer.addSite(message.site, message.listType).then(() => sendResponse({ success: true }));
+      return true;
+      
+    case 'removeSite':
+      spoofer.removeSite(message.site, message.listType).then(() => sendResponse({ success: true }));
       return true;
       
     case 'getRandomUserAgent':
