@@ -1,4 +1,5 @@
-// Background script for User Agent Spoofer
+// Background script for User Agent Spoofer (Manifest V3 - Firefox)
+
 class UserAgentSpoofer {
   constructor() {
     this.userAgents = [];
@@ -8,77 +9,91 @@ class UserAgentSpoofer {
     this.mode = 'all'; // 'all', 'blacklist', 'whitelist'
     this.whitelist = [];
     this.blacklist = [];
+    this.ruleId = 1;
     this.init();
   }
 
   async init() {
-    await this.loadSettings();
-    await this.fetchUserAgents();
-    this.setupRequestListener();
-    this.updateBadge();
+    try {
+      await this.loadSettings();
+      await this.fetchUserAgents();
+      await this.updateDeclarativeRules();
+      await this.updateBadge();
+    } catch (error) {
+      console.error('Failed to initialize UserAgentSpoofer:', error);
+    }
   }
 
   async loadSettings() {
-    const result = await browser.storage.local.get([
-      'isEnabled',
-      'currentUserAgent',
-      'customUserAgents',
-      'mode',
-      'whitelist',
-      'blacklist'
-    ]);
-    
-    this.isEnabled = result.isEnabled || false;
-    this.currentUserAgent = result.currentUserAgent || null;
-    this.customUserAgents = result.customUserAgents || [];
-    this.mode = result.mode || 'all';
-    this.whitelist = result.whitelist || [];
-    this.blacklist = result.blacklist || [];
+    try {
+      const result = await chrome.storage.local.get([
+        'isEnabled',
+        'currentUserAgent',
+        'customUserAgents',
+        'mode',
+        'whitelist',
+        'blacklist'
+      ]);
+      
+      this.isEnabled = result.isEnabled || false;
+      this.currentUserAgent = result.currentUserAgent || null;
+      this.customUserAgents = result.customUserAgents || [];
+      this.mode = result.mode || 'all';
+      this.whitelist = result.whitelist || [];
+      this.blacklist = result.blacklist || [];
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
   }
 
   async saveSettings() {
-    await browser.storage.local.set({
-      isEnabled: this.isEnabled,
-      currentUserAgent: this.currentUserAgent,
-      customUserAgents: this.customUserAgents,
-      mode: this.mode,
-      whitelist: this.whitelist,
-      blacklist: this.blacklist
-    });
-    this.updateBadge();
+    try {
+      await chrome.storage.local.set({
+        isEnabled: this.isEnabled,
+        currentUserAgent: this.currentUserAgent,
+        customUserAgents: this.customUserAgents,
+        mode: this.mode,
+        whitelist: this.whitelist,
+        blacklist: this.blacklist
+      });
+      await this.updateDeclarativeRules();
+      await this.updateBadge();
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    }
   }
 
-  updateBadge() {
-    let badgeText = '';
-    let badgeColor = '#666666'; // Default gray
-    
-    if (!this.isEnabled) {
-      badgeText = 'OFF';
-      badgeColor = '#ef4444'; // Red for disabled
-    } else {
-      switch (this.mode) {
-        case 'all':
-          badgeText = 'ALL';
-          badgeColor = '#10b981'; // Green for all sites
-          break;
-        case 'whitelist':
-          badgeText = 'WL';
-          badgeColor = '#3b82f6'; // Blue for whitelist
-          break;
-        case 'blacklist':
-          badgeText = 'BL';
-          badgeColor = '#8b5cf6'; // Dark violet for blacklist
-          break;
-        default:
-          badgeText = 'ON';
-          badgeColor = '#10b981'; // Green for enabled
-      }
-    }
-
+  async updateBadge() {
     try {
-      if (typeof browser.browserAction !== 'undefined' && browser.browserAction.setBadgeText) {
-        browser.browserAction.setBadgeText({ text: badgeText });
-        browser.browserAction.setBadgeBackgroundColor({ color: badgeColor });
+      let badgeText = '';
+      let badgeColor = '#666666'; // Default gray
+      
+      if (!this.isEnabled) {
+        badgeText = 'OFF';
+        badgeColor = '#ef4444'; // Red for disabled
+      } else {
+        switch (this.mode) {
+          case 'all':
+            badgeText = 'ALL';
+            badgeColor = '#10b981'; // Green for all sites
+            break;
+          case 'whitelist':
+            badgeText = 'WL';
+            badgeColor = '#3b82f6'; // Blue for whitelist
+            break;
+          case 'blacklist':
+            badgeText = 'BL';
+            badgeColor = '#8b5cf6'; // Dark violet for blacklist
+            break;
+          default:
+            badgeText = 'ON';
+            badgeColor = '#10b981'; // Green for enabled
+        }
+      }
+
+      if (chrome.action && chrome.action.setBadgeText) {
+        await chrome.action.setBadgeText({ text: badgeText });
+        await chrome.action.setBadgeBackgroundColor({ color: badgeColor });
       }
     } catch (error) {
       console.error('Error updating badge:', error);
@@ -89,11 +104,12 @@ class UserAgentSpoofer {
     try {
       // Caching: check if we have a recent cache (24h)
       const CACHE_KEY = 'userAgentCache';
-      const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-      const cache = await browser.storage.local.get([CACHE_KEY]);
+      const CACHE_TTL = Utils ? Utils.CACHE_TTL : 24 * 60 * 60 * 1000; // 24 hours
+      const cache = await chrome.storage.local.get([CACHE_KEY]);
       const now = Date.now();
       let useCache = false;
       let cachedData = null;
+      
       if (cache[CACHE_KEY] && cache[CACHE_KEY].timestamp && (now - cache[CACHE_KEY].timestamp < CACHE_TTL)) {
         cachedData = cache[CACHE_KEY].data;
         useCache = true;
@@ -104,7 +120,7 @@ class UserAgentSpoofer {
         data = cachedData;
       } else {
         // Fetch all user agent sources
-        const urls = [
+        const urls = Utils ? Utils.USER_AGENT_SOURCES : [
           // Most Common
           'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/common/desktop.json',
           'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/common/mobile.json',
@@ -116,10 +132,22 @@ class UserAgentSpoofer {
           'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/mac.json',
           'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/windows.json'
         ];
-        const responses = await Promise.all(urls.map(url => fetch(url)));
-        data = await Promise.all(responses.map(response => response.json()));
+        
+        const responses = await Promise.all(
+          urls.map(url => fetch(url).catch(err => {
+            console.warn(`Failed to fetch ${url}:`, err);
+            return null;
+          }))
+        );
+        
+        data = await Promise.all(
+          responses.map(response => 
+            response ? response.json().catch(() => null) : null
+          )
+        );
+        
         // Save to cache
-        await browser.storage.local.set({
+        await chrome.storage.local.set({
           [CACHE_KEY]: {
             timestamp: now,
             data: data
@@ -129,6 +157,7 @@ class UserAgentSpoofer {
 
       // Process and tag user agents
       const userAgents = [];
+      
       // Process most common
       if (data[0] && data[0].user_agents) {
         for (const ua of data[0].user_agents) {
@@ -140,6 +169,7 @@ class UserAgentSpoofer {
           userAgents.push({ ua, source: 'most_common', device: 'mobile' });
         }
       }
+      
       // Process latest
       const latestDevices = ['android', 'ipad', 'iphone', 'linux', 'mac', 'windows'];
       for (let i = 2; i < data.length; i++) {
@@ -149,13 +179,15 @@ class UserAgentSpoofer {
           }
         }
       }
+      
       // Add custom user agents
       userAgents.push(...this.customUserAgents.map(ua => ({ ...ua, source: 'custom' })));
       this.userAgents = userAgents;
+      
     } catch (error) {
       console.error('Failed to fetch user agents:', error);
       // Fallback to basic user agents
-      this.userAgents = [
+      this.userAgents = Utils ? Utils.FALLBACK_USER_AGENTS : [
         {
           ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
           source: 'fallback',
@@ -200,45 +232,77 @@ class UserAgentSpoofer {
     }
   }
 
-  setupRequestListener() {
-    browser.webRequest.onBeforeSendHeaders.addListener(
-      (details) => {
-        if (!this.isEnabled || !this.currentUserAgent) {
-          return {};
-        }
-
-        // Check if we should apply user agent based on mode and site lists
-        if (!this.shouldApplyUserAgent(details.url)) {
-          return {};
-        }
-
-        const headers = details.requestHeaders.map(header => {
-          if (header.name.toLowerCase() === 'user-agent') {
-            return { name: header.name, value: this.currentUserAgent };
-          }
-          return header;
+  async updateDeclarativeRules() {
+    try {
+      // Clear existing rules
+      const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
+      const ruleIds = existingRules.map(rule => rule.id);
+      
+      if (ruleIds.length > 0) {
+        await chrome.declarativeNetRequest.updateDynamicRules({
+          removeRuleIds: ruleIds
         });
+      }
 
-        return { requestHeaders: headers };
-      },
-      { urls: ['<all_urls>'] },
-      ['blocking', 'requestHeaders']
-    );
+      // If disabled or no user agent, don't add any rules
+      if (!this.isEnabled || !this.currentUserAgent) {
+        return;
+      }
+
+      // Create new rule
+      const rule = {
+        id: this.ruleId,
+        priority: 1,
+        action: {
+          type: 'modifyHeaders',
+          requestHeaders: [
+            {
+              header: 'user-agent',
+              operation: 'set',
+              value: this.currentUserAgent
+            }
+          ]
+        },
+        condition: this.createRuleCondition()
+      };
+
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        addRules: [rule]
+      });
+      
+    } catch (error) {
+      console.error('Failed to update declarative rules:', error);
+    }
   }
 
-  shouldApplyUserAgent(url) {
-    const hostname = new URL(url).hostname;
-    
+  createRuleCondition() {
+    const condition = {
+      resourceTypes: ['main_frame', 'sub_frame', 'xmlhttprequest', 'other']
+    };
+
     switch (this.mode) {
       case 'all':
-        return true;
+        condition.urlFilter = '*';
+        break;
       case 'blacklist':
-        return !this.blacklist.some(site => hostname.includes(site));
+        if (this.blacklist.length > 0) {
+          condition.excludedRequestDomains = this.blacklist.slice();
+        }
+        condition.urlFilter = '*';
+        break;
       case 'whitelist':
-        return this.whitelist.some(site => hostname.includes(site));
+        if (this.whitelist.length > 0) {
+          condition.requestDomains = this.whitelist.slice();
+        } else {
+          // If whitelist is empty, don't match anything
+          condition.urlFilter = 'impossible-url-that-never-matches';
+        }
+        break;
       default:
-        return true;
+        condition.urlFilter = '*';
     }
+
+    return condition;
   }
 
   async toggleEnabled() {
@@ -253,35 +317,57 @@ class UserAgentSpoofer {
   }
 
   async addCustomUserAgent(userAgent) {
-    const customUA = {
-      ua: userAgent
-    };
+    // Validate user agent
+    if (Utils && !Utils.isValidUserAgent(userAgent)) {
+      throw new Error('Invalid user agent format');
+    }
+    
+    const customUA = { ua: userAgent };
+    
+    // Check if already exists
+    const exists = this.customUserAgents.some(ua => ua.ua === userAgent);
+    if (exists) {
+      throw new Error('User agent already exists in custom list');
+    }
     
     this.customUserAgents.push(customUA);
-    this.userAgents.push(customUA);
+    this.userAgents.push({ ...customUA, source: 'custom' });
     await this.saveSettings();
   }
 
   async removeCustomUserAgent(userAgent) {
     this.customUserAgents = this.customUserAgents.filter(ua => ua.ua !== userAgent);
-    this.userAgents = this.userAgents.filter(ua => ua.ua !== userAgent);
+    this.userAgents = this.userAgents.filter(ua => !(ua.ua === userAgent && ua.source === 'custom'));
     await this.saveSettings();
   }
 
   async setMode(mode) {
+    if (!['all', 'blacklist', 'whitelist'].includes(mode)) {
+      throw new Error('Invalid mode');
+    }
     this.mode = mode;
     await this.saveSettings();
   }
 
   async addSite(site, listType) {
-    const cleanSite = site.toLowerCase().trim();
+    if (!['whitelist', 'blacklist'].includes(listType)) {
+      throw new Error('Invalid list type');
+    }
+    
+    const cleanSite = Utils ? Utils.cleanSiteDomain(site) : site.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     if (cleanSite && !this[listType].includes(cleanSite)) {
       this[listType].push(cleanSite);
       await this.saveSettings();
+    } else if (!cleanSite) {
+      throw new Error('Invalid domain format');
     }
   }
 
   async removeSite(site, listType) {
+    if (!['whitelist', 'blacklist'].includes(listType)) {
+      throw new Error('Invalid list type');
+    }
+    
     this[listType] = this[listType].filter(s => s !== site);
     await this.saveSettings();
   }
@@ -386,23 +472,35 @@ class UserAgentSpoofer {
 // Initialize the spoofer
 const spoofer = new UserAgentSpoofer();
 
+// Auto-random timer management
 let autoRandomTimer = null;
 
 async function getPreferences() {
-  const prefs = await browser.storage.local.get([
-    'preferredDevice',
-    'preferredBrowser',
-    'preferredSource',
-    'intervalMinutes',
-    'enableInterval'
-  ]);
-  return {
-    device: prefs.preferredDevice || 'android',
-    browser: prefs.preferredBrowser || 'chrome',
-    source: prefs.preferredSource || 'all',
-    intervalMinutes: prefs.intervalMinutes || 5,
-    enableInterval: prefs.enableInterval || false
-  };
+  try {
+    const prefs = await chrome.storage.local.get([
+      'preferredDevice',
+      'preferredBrowser',
+      'preferredSource',
+      'intervalMinutes',
+      'enableInterval'
+    ]);
+    return {
+      device: prefs.preferredDevice || 'android',
+      browser: prefs.preferredBrowser || 'chrome',
+      source: prefs.preferredSource || 'all',
+      intervalMinutes: prefs.intervalMinutes || 5,
+      enableInterval: prefs.enableInterval || false
+    };
+  } catch (error) {
+    console.error('Failed to get preferences:', error);
+    return {
+      device: 'android',
+      browser: 'chrome',
+      source: 'all',
+      intervalMinutes: 5,
+      enableInterval: false
+    };
+  }
 }
 
 function clearAutoRandomTimer() {
@@ -414,103 +512,154 @@ function clearAutoRandomTimer() {
 
 async function startAutoRandomTimer() {
   clearAutoRandomTimer();
-  const prefs = await getPreferences();
-  if (!prefs.enableInterval) return;
-  let minutes = parseInt(prefs.intervalMinutes);
-  if (isNaN(minutes) || minutes < 1) minutes = 1;
-  if (minutes > 60) minutes = 60;
-  const ms = minutes * 60 * 1000;
-  autoRandomTimer = setInterval(runSmartRandom, ms);
+  try {
+    const prefs = await getPreferences();
+    if (!prefs.enableInterval) return;
+    
+    let minutes = Utils ? Utils.validateInterval(prefs.intervalMinutes) : parseInt(prefs.intervalMinutes);
+    if (!Utils) {
+      if (isNaN(minutes) || minutes < 1) minutes = 1;
+      if (minutes > 60) minutes = 60;
+    }
+    const ms = minutes * 60 * 1000;
+    autoRandomTimer = setInterval(runSmartRandom, ms);
+  } catch (error) {
+    console.error('Failed to start auto random timer:', error);
+  }
 }
 
 async function runSmartRandom() {
-  const prefs = await getPreferences();
-  // Use the same logic as smartRandom in popup.js
-  const filteredAgents = spoofer.userAgents.filter(ua => {
-    if (prefs.source && prefs.source !== 'all' && ua.source !== prefs.source) return false;
-    const uaLower = ua.ua.toLowerCase();
-    const deviceMatch = spoofer.checkDeviceMatch(uaLower, prefs.device);
-    const browserMatch = spoofer.checkBrowserMatch(uaLower, prefs.browser);
-    return deviceMatch && browserMatch;
-  });
-  if (filteredAgents.length > 0) {
-    const randomUA = filteredAgents[Math.floor(Math.random() * filteredAgents.length)].ua;
-    await spoofer.setUserAgent(randomUA);
+  try {
+    const prefs = await getPreferences();
+    const filteredAgents = spoofer.userAgents.filter(ua => {
+      if (prefs.source && prefs.source !== 'all' && ua.source !== prefs.source) return false;
+      const uaLower = ua.ua.toLowerCase();
+      const deviceMatch = spoofer.checkDeviceMatch(uaLower, prefs.device);
+      const browserMatch = spoofer.checkBrowserMatch(uaLower, prefs.browser);
+      return deviceMatch && browserMatch;
+    });
+    
+    if (filteredAgents.length > 0) {
+      const randomUA = filteredAgents[Math.floor(Math.random() * filteredAgents.length)].ua;
+      await spoofer.setUserAgent(randomUA);
+    }
+  } catch (error) {
+    console.error('Failed to run smart random:', error);
   }
 }
 
 // Listen for storage changes
-browser.storage.onChanged.addListener((changes, area) => {
+chrome.storage.onChanged.addListener(async (changes, area) => {
   if (area === 'local' && ('enableInterval' in changes || 'intervalMinutes' in changes || 'preferredDevice' in changes || 'preferredBrowser' in changes || 'preferredSource' in changes)) {
-    getPreferences().then(prefs => {
+    try {
+      const prefs = await getPreferences();
       if (prefs.enableInterval) {
-        startAutoRandomTimer();
+        await startAutoRandomTimer();
       } else {
         clearAutoRandomTimer();
       }
-    });
+    } catch (error) {
+      console.error('Failed to handle storage changes:', error);
+    }
   }
 });
 
-// On background startup, start timer if needed
-getPreferences().then(prefs => {
-  if (prefs.enableInterval) {
-    startAutoRandomTimer();
+// Background script startup
+chrome.runtime.onStartup.addListener(async () => {
+  try {
+    const prefs = await getPreferences();
+    if (prefs.enableInterval) {
+      await startAutoRandomTimer();
+    }
+  } catch (error) {
+    console.error('Failed to handle startup:', error);
+  }
+});
+
+// Extension installation/update
+chrome.runtime.onInstalled.addListener(async () => {
+  try {
+    const prefs = await getPreferences();
+    if (prefs.enableInterval) {
+      await startAutoRandomTimer();
+    }
+  } catch (error) {
+    console.error('Failed to handle installation:', error);
   }
 });
 
 // Handle messages from popup and content scripts
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  switch (message.action) {
-    case 'getStatus':
-      sendResponse(spoofer.getStatus());
-      break;
-      
-    case 'toggleEnabled':
-      spoofer.toggleEnabled().then(enabled => sendResponse({ enabled }));
-      return true;
-      
-    case 'setUserAgent':
-      spoofer.setUserAgent(message.userAgent).then(() => sendResponse({ success: true }));
-      return true;
-      
-    case 'addCustomUserAgent':
-      spoofer.addCustomUserAgent(message.userAgent).then(() => sendResponse({ success: true }));
-      return true;
-      
-    case 'removeCustomUserAgent':
-      spoofer.removeCustomUserAgent(message.userAgent).then(() => sendResponse({ success: true }));
-      return true;
-      
-    case 'setMode':
-      spoofer.setMode(message.mode).then(() => sendResponse({ success: true }));
-      return true;
-      
-    case 'addSite':
-      spoofer.addSite(message.site, message.listType).then(() => sendResponse({ success: true }));
-      return true;
-      
-    case 'removeSite':
-      spoofer.removeSite(message.site, message.listType).then(() => sendResponse({ success: true }));
-      return true;
-      
-    case 'getRandomUserAgent':
-      const randomUA = spoofer.getRandomUserAgent();
-      sendResponse({ userAgent: randomUA });
-      break;
-      
-    case 'getFilteredUserAgents':
-      const filteredAgents = spoofer.getFilteredUserAgents(message.device, message.browser, message.source);
-      sendResponse({ userAgents: filteredAgents });
-      break;
-      
-    case 'getSmartRandomUserAgent':
-      const smartRandomUA = spoofer.getSmartRandomUserAgent(message.device, message.browser, message.source);
-      sendResponse({ userAgent: smartRandomUA });
-      break;
-      
-    case 'refreshUserAgents':
-      spoofer.fetchUserAgents().then(() => sendResponse({ success: true }));
-      return true;
-  }
-}); 
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  (async () => {
+    try {
+      switch (message.action) {
+        case 'getStatus':
+          sendResponse(spoofer.getStatus());
+          break;
+          
+        case 'toggleEnabled':
+          const enabled = await spoofer.toggleEnabled();
+          sendResponse({ enabled });
+          break;
+          
+        case 'setUserAgent':
+          await spoofer.setUserAgent(message.userAgent);
+          sendResponse({ success: true });
+          break;
+          
+        case 'addCustomUserAgent':
+          await spoofer.addCustomUserAgent(message.userAgent);
+          sendResponse({ success: true });
+          break;
+          
+        case 'removeCustomUserAgent':
+          await spoofer.removeCustomUserAgent(message.userAgent);
+          sendResponse({ success: true });
+          break;
+          
+        case 'setMode':
+          await spoofer.setMode(message.mode);
+          sendResponse({ success: true });
+          break;
+          
+        case 'addSite':
+          await spoofer.addSite(message.site, message.listType);
+          sendResponse({ success: true });
+          break;
+          
+        case 'removeSite':
+          await spoofer.removeSite(message.site, message.listType);
+          sendResponse({ success: true });
+          break;
+          
+        case 'getRandomUserAgent':
+          const randomUA = spoofer.getRandomUserAgent();
+          sendResponse({ userAgent: randomUA });
+          break;
+          
+        case 'getFilteredUserAgents':
+          const filteredAgents = spoofer.getFilteredUserAgents(message.device, message.browser, message.source);
+          sendResponse({ userAgents: filteredAgents });
+          break;
+          
+        case 'getSmartRandomUserAgent':
+          const smartRandomUA = spoofer.getSmartRandomUserAgent(message.device, message.browser, message.source);
+          sendResponse({ userAgent: smartRandomUA });
+          break;
+          
+        case 'refreshUserAgents':
+          await spoofer.fetchUserAgents();
+          sendResponse({ success: true });
+          break;
+          
+        default:
+          sendResponse({ error: 'Unknown action' });
+      }
+    } catch (error) {
+      console.error('Message handler error:', error);
+      sendResponse({ error: error.message });
+    }
+  })();
+  
+  return true; // Will respond asynchronously
+});

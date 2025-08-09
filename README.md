@@ -1,10 +1,9 @@
 # Unga Bunga User-Agent
 
-A powerful and user-friendly Firefox extension for advanced user agent spoofing with anti-detection features.
+A powerful and user-friendly Firefox extension for advanced user agent spoofing with anti-detection features. Now fully migrated to Manifest V3 for enhanced security and performance.
 
 ![Extension Badge](icons/icon.svg) [![License](https://img.shields.io/badge/License-GPL%20v3-green?style=for-the-badge)](LICENSE)
 [![Firefox](https://img.shields.io/badge/Firefox-Add--on-orange?style=for-the-badge&logo=firefox)](https://addons.mozilla.org/firefox/addon/unga-bunga-user-agent/)
-
 
 ## 📋 Table of Contents
 
@@ -17,7 +16,6 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 - [Troubleshooting](#-troubleshooting)
 - [Contributing](#-contributing)
 - [License](#-license)
-
 
 ## ✨ Features
 
@@ -32,6 +30,7 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 - **Smart User Agent Spoofing**: Automatically change your browser's user agent string
 - **Anti-Detection**: Advanced features to prevent websites from detecting spoofing
 - **Real-time Updates**: Live user agent changes without page refresh
+- **Manifest V3**: Modern extension architecture for better security and performance
 
 ### 🎨 Modern Interface
 
@@ -42,10 +41,11 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 ### 🔧 Advanced Options
 
 - **Multiple Modes**: All sites, Whitelist, or Blacklist operation
-- **Custom User Agents**: Add your own user agent strings
+- **Custom User Agents**: Add your own user agent strings with validation
 - **Smart Random**: Intelligent user agent selection based on preferences
 - **Auto-Random**: Automatic user agent rotation at set intervals
-
+- **Robust Error Handling**: Comprehensive error management and recovery
+- **Improved Performance**: Optimized caching and efficient background processing
 
 ## 📦 Installation
 
@@ -62,7 +62,6 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 2. Open Firefox and go to `about:debugging`
 3. Click "This Firefox" → "Load Temporary Add-on"
 4. Select the `manifest.json` file
-
 
 ## 🚀 Quick Start
 
@@ -82,7 +81,6 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
    - Check the badge color for status confirmation
 
 ![Quick Start](screenshots/quick.png)
-
 
 ## 📖 Usage Guide
 
@@ -122,7 +120,6 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 
 ![Custom User Agents](screenshots/custom.png)
 
-
 ## 🔧 Advanced Features
 
 ### Site-Specific Control
@@ -157,7 +154,6 @@ Click "Advanced Options" to access site-specific settings:
 
 ![Site Management](screenshots/mode_add.png)
 
-
 ## 🎨 Badge Indicators
 
 The extension icon shows your current status:
@@ -171,7 +167,6 @@ The extension icon shows your current status:
 
 ![Badge Examples](screenshots/badge.png)
 
-
 ## 🔄 Update User Agents
 
 - **Automatic**: User agents are cached for 24 hours
@@ -180,6 +175,23 @@ The extension icon shows your current status:
 
 ![Update](screenshots/update.png)
 
+## 🚀 What's New in Manifest V3
+
+### Enhanced Security & Performance
+
+- **Service Worker Architecture**: Modern background processing for better resource management
+- **Declarative Net Request**: Improved request handling with better performance
+- **Enhanced Error Handling**: Comprehensive error management and recovery mechanisms
+- **Improved Validation**: Better input validation for user agents and domains
+- **Modular Code Structure**: Clean, maintainable codebase with shared utilities
+- **Robust Communication**: Reliable messaging between extension components
+
+### Migration Benefits
+
+- **Better Resource Usage**: Lower memory footprint and CPU usage
+- **Improved Reliability**: More stable operation with automatic recovery
+- **Enhanced Privacy**: Better isolation and security boundaries
+- **Future-Proof**: Compatible with latest browser standards
 
 ## 🛠️ Troubleshooting
 
@@ -201,12 +213,10 @@ The extension icon shows your current status:
 - Click "Show" next to "Advanced Options"
 - The section is collapsed by default
 
-
 ## 🤝 Contributing
 
 Found a bug or have a feature request?
 [Open an issue](https://github.com/ShrekBytes/unga-bunga-User-Agent/issues) or submit a pull request.
-
 
 ## 🙏 Acknowledgments
 
@@ -214,8 +224,6 @@ Found a bug or have a feature request?
 - Useragents.me
 - Open source community
 
-
 ## 📄 License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
-
