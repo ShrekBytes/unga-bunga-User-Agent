@@ -1,162 +1,221 @@
 # Unga Bunga User-Agent
 
-A powerful and user-friendly Firefox extension for advanced user agent spoofing with anti-detection measures.
+A powerful and user-friendly Firefox extension for advanced user agent spoofing with anti-detection features.
 
-## Features
+![Extension Badge](icons/icon.svg) [![License](https://img.shields.io/badge/License-GPL%20v3-green?style=for-the-badge)](LICENSE)
+[![Firefox](https://img.shields.io/badge/Firefox-Add--on-orange?style=for-the-badge&logo=firefox)](https://addons.mozilla.org/firefox/addon/unga-bunga-user-agent/)
 
-- **Smart User Agent Management**: Automatically fetches and manages the latest user agents from multiple sources
-- **Multiple Modes**: All sites, whitelist, or blacklist modes for flexible control
-- **Anti-Detection**: Advanced fingerprinting protection and navigator API spoofing
-- **Custom User Agents**: Add and manage your own custom user agent strings
-- **Smart Random Selection**: Filter user agents by device, browser, and source preferences
-- **Auto-Rotation**: Automatically rotate user agents at configurable intervals
-- **Modern Architecture**: Built with Manifest V3 for Firefox 109+
 
-## Installation
+## 📋 Table of Contents
 
-### From Source
+- [Features](#-features)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Usage Guide](#-usage-guide)
+- [Advanced Features](#-advanced-features)
+- [Badge Indicators](#-badge-indicators)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-1. Clone this repository:
 
-   ```bash
-   git clone https://github.com/yourusername/unga-bunga-User-Agent.git
-   cd unga-bunga-User-Agent
-   ```
+## ✨ Features
 
-2. Open Firefox and navigate to `about:debugging`
+<p float="center">
+  <img src="screenshots/1.jpg" height="456px" />
+  <img src="screenshots/2.jpg" height="456px" />
+  <img src="screenshots/3.jpg" height="456px" />
+</p>
 
-3. Click "This Firefox" in the left sidebar
+### 🎯 Core Functionality
 
-4. Click "Load Temporary Add-on" and select the `manifest.json` file
+- **Smart User Agent Spoofing**: Automatically change your browser's user agent string
+- **Anti-Detection**: Advanced features to prevent websites from detecting spoofing
+- **Real-time Updates**: Live user agent changes without page refresh
 
-### Building and Packaging
+### 🎨 Modern Interface
 
-```bash
-# Install dependencies (if any)
-npm install
+- **Clean, Minimal Design**: Modern dark theme with intuitive controls
+- **Responsive Layout**: Optimized for all screen sizes
+- **Visual Feedback**: Toast notifications and status indicators
 
-# Build the extension
-npm run build
+### 🔧 Advanced Options
 
-# Package for distribution
-npm run package
-```
+- **Multiple Modes**: All sites, Whitelist, or Blacklist operation
+- **Custom User Agents**: Add your own user agent strings
+- **Smart Random**: Intelligent user agent selection based on preferences
+- **Auto-Random**: Automatic user agent rotation at set intervals
 
-## Usage
 
-### Basic Operation
+## 📦 Installation
 
-1. **Enable/Disable**: Use the toggle switch to enable or disable the extension
-2. **Select User Agent**: Choose from the list of available user agents or use random selection
-3. **Apply Changes**: Click "Apply" to set the selected user agent
+### From Firefox Add-ons Store (Recommended)
 
-### Advanced Features
+1. Visit the Firefox Add-ons store
+2. Search for "Unga Bunga User-Agent"
+3. Click "Add to Firefox"
+4. Confirm the installation
 
-#### Modes
+### Manual Installation (Developer)
 
-- **All Sites**: Apply user agent spoofing to all websites
-- **Whitelist**: Only apply to specified domains
-- **Blacklist**: Apply to all sites except specified domains
+1. Download the extension files
+2. Open Firefox and go to `about:debugging`
+3. Click "This Firefox" → "Load Temporary Add-on"
+4. Select the `manifest.json` file
 
-#### Smart Random
 
-- Configure preferred device, browser, and source
-- Use smart random to get contextually appropriate user agents
-- Set up automatic rotation at configurable intervals
+## 🚀 Quick Start
 
-#### Custom User Agents
+1. **Enable the Extension**
 
-- Add your own user agent strings
-- Manage and remove custom entries
-- Integrate with the main user agent list
+   - Click the extension icon in your toolbar
+   - Toggle the "Enabled" switch to ON
 
-### Anti-Detection Features
+2. **Choose a User Agent**
 
-The extension provides comprehensive protection against:
+   - Select from the filtered list
+   - Or use "Random UA" for automatic selection
+   - Or use "Smart Random" for intelligent selection
 
-- User agent detection
-- Platform fingerprinting
-- Browser fingerprinting
-- Canvas fingerprinting
-- WebGL fingerprinting
-- Audio fingerprinting
-- Performance timing attacks
+3. **Apply Changes**
+   - Your user agent is now active
+   - Check the badge color for status confirmation
 
-## Development
+![Quick Start](screenshots/quick.png)
 
-### Project Structure
 
-```
-unga-bunga-User-Agent/
-├── manifest.json          # Extension manifest (Manifest V3)
-├── background.js          # Service worker (background script)
-├── content.js            # Content script for anti-detection
-├── popup.js              # Popup interface logic
-├── popup.html            # Popup interface HTML
-├── popup.css             # Popup interface styles
-├── icons/                # Extension icons
-├── package.json          # Project configuration
-└── README.md             # This file
-```
+## 📖 Usage Guide
 
-### Key Technologies
+### Basic Controls
 
-- **Manifest V3**: Modern Firefox extension architecture
-- **Declarative Net Request**: Efficient network request modification
-- **Service Workers**: Background script execution
-- **ES6+ JavaScript**: Modern JavaScript features
-- **CSS3**: Modern styling with animations
+#### Current User Agent Section
 
-### Browser Compatibility
+- **Text Area**: View and edit the current user agent string
+- **Apply Button**: Apply the edited user agent
+- **Random UA**: Select a random user agent from all available
+- **Reset Default**: Return to your browser's default user agent
 
-- Firefox 109.0+
-- Manifest V3 support required
+![Basic Controls](screenshots/hero.png)
 
-## Security Features
+#### Preferences Section
 
-- **Minimal Permissions**: Only requests necessary permissions
-- **Host Permissions**: Granular control over which sites can be accessed
-- **Secure Communication**: Uses browser.runtime messaging for secure communication
-- **No External Scripts**: All code runs locally within the extension
+- **Device Filter**: Choose Android, iPhone, iPad, Linux, Mac, or Windows
+- **Browser Filter**: Select Chrome, Firefox, Edge, Opera, Safari, or Vivaldi
+- **Source Filter**: Choose from All, Custom, Latest, or Most Common user agents
+- **Smart Random**: Intelligent selection based on your preferences
 
-## Contributing
+![Preferences](screenshots/preferences.png)
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+### Auto Smart Random
 
-## License
+- **Toggle**: Enable/disable automatic user agent rotation
+- **Interval**: Set rotation time (1-60 minutes)
+- **Smart Selection**: Uses your device and browser preferences
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+![Auto Random](screenshots/smart.png)
 
-## Changelog
+### Custom User Agents
 
-### v1.1.0
+- **Add Custom**: Enter your own user agent strings
+- **Remove**: Delete custom user agents with the × button
+- **Persistent**: Custom agents are saved between sessions
 
-- Migrated to Manifest V3
-- Replaced deprecated webRequest blocking with declarativeNetRequest
-- Updated to modern Firefox extension APIs
-- Improved error handling and async patterns
-- Enhanced anti-detection measures
+![Custom User Agents](screenshots/custom.png)
 
-### v1.0.0
 
-- Initial release with Manifest V2
-- Basic user agent spoofing functionality
-- Anti-detection measures
+## 🔧 Advanced Features
 
-## Support
+### Site-Specific Control
 
-If you encounter any issues or have questions:
+Click "Advanced Options" to access site-specific settings:
 
-1. Check the [Issues](https://github.com/yourusername/unga-bunga-User-Agent/issues) page
-2. Create a new issue with detailed information
-3. Include Firefox version and extension version
+![Modes](screenshots/mode.png)
 
-## Acknowledgments
+#### All Sites Mode (Default)
 
-- User agent data provided by [ShrekBytes/useragents-data](https://github.com/ShrekBytes/useragents-data)
-- Firefox WebExtensions API documentation
-- Mozilla Developer Network resources
+- User agent applied to all websites
+- No site list management needed
+- Perfect for general privacy
+
+#### Whitelist Mode
+
+- User agent applied ONLY to specified sites
+- Add sites to the whitelist
+- All other sites use your real user agent
+
+#### Blacklist Mode
+
+- User agent applied to all sites EXCEPT specified ones
+- Add sites to the blacklist
+- Excluded sites use your real user agent
+
+### Site Management
+
+- **Add Sites**: Click "Add Site" and enter domain (e.g., `example.com`)
+- **Remove Sites**: Hover over a site and click the × button
+- **Real-time Updates**: Changes apply immediately
+
+![Site Management](screenshots/mode_add.png)
+
+
+## 🎨 Badge Indicators
+
+The extension icon shows your current status:
+
+| Badge  | Color  | Status    | Description                             |
+| ------ | ------ | --------- | --------------------------------------- |
+| 🔴 OFF | Red    | Disabled  | Extension is turned off                 |
+| 🟢 ALL | Green  | All Sites | Working on all websites                 |
+| 🔵 WL  | Blue   | Whitelist | Working only on whitelisted sites       |
+| 🟣 BL  | Purple | Blacklist | Working on all sites except blacklisted |
+
+![Badge Examples](screenshots/badge.png)
+
+
+## 🔄 Update User Agents
+
+- **Automatic**: User agents are cached for 24 hours
+- **Manual Update**: Click "Update User Agents" to refresh the list
+- **Latest Sources**: Always get the most recent user agent strings
+
+![Update](screenshots/update.png)
+
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+**Badge not showing?**
+
+- Reload the extension
+- Check if the extension is enabled
+
+**User agent not changing?**
+
+- Ensure the extension is enabled
+- Check if the site is in blacklist/whitelist
+- Try refreshing the page
+
+**Advanced options not visible?**
+
+- Click "Show" next to "Advanced Options"
+- The section is collapsed by default
+
+
+## 🤝 Contributing
+
+Found a bug or have a feature request?
+[Open an issue](https://github.com/ShrekBytes/unga-bunga-User-Agent/issues) or submit a pull request.
+
+
+## 🙏 Acknowledgments
+
+- User agent data from [ShrekBytes/useragents-data](https://github.com/ShrekBytes/useragents-data)
+- Useragents.me
+- Open source community
+
+
+## 📄 License
+
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
