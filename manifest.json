@@ -23,7 +23,9 @@
     "default_popup": "popup.html",
     "default_title": "Unga Bunga User-Agent",
     "default_icon": {
-      "48": "icons/icon.svg"
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
     }
   },
   
@@ -43,7 +45,9 @@
   ],
   
   "icons": {
-    "48": "icons/icon.svg",
-    "96": "icons/icon.svg"
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   }
 } 
