@@ -1,4 +1,4 @@
-// Background script for User Agent Spoofer
+// Background script for User Agent Spoofer (Manifest V3)
 class UserAgentSpoofer {
   constructor() {
     this.userAgents = [];
@@ -40,12 +40,12 @@ class UserAgentSpoofer {
     await browser.storage.local.set({
       isEnabled: this.isEnabled,
       currentUserAgent: this.currentUserAgent,
-      customUserAgents: this.customUserAgents,
       mode: this.mode,
       whitelist: this.whitelist,
       blacklist: this.blacklist
     });
     this.updateBadge();
+    await this.updateDeclarativeRules();
   }
 
   updateBadge() {
@@ -76,9 +76,10 @@ class UserAgentSpoofer {
     }
 
     try {
-      if (typeof browser.browserAction !== 'undefined' && browser.browserAction.setBadgeText) {
-        browser.browserAction.setBadgeText({ text: badgeText });
-        browser.browserAction.setBadgeBackgroundColor({ color: badgeColor });
+      // Use action API instead of browserAction for Manifest V3
+      if (typeof browser.action !== 'undefined' && browser.action.setBadgeText) {
+        browser.action.setBadgeText({ text: badgeText });
+        browser.action.setBadgeBackgroundColor({ color: badgeColor });
       }
     } catch (error) {
       console.error('Error updating badge:', error);
@@ -201,29 +202,102 @@ class UserAgentSpoofer {
   }
 
   setupRequestListener() {
-    browser.webRequest.onBeforeSendHeaders.addListener(
-      (details) => {
-        if (!this.isEnabled || !this.currentUserAgent) {
-          return {};
-        }
+    // For Manifest V3, we use declarativeNetRequest instead of webRequest blocking
+    // The actual rule management is handled in updateDeclarativeRules()
+  }
 
-        // Check if we should apply user agent based on mode and site lists
-        if (!this.shouldApplyUserAgent(details.url)) {
-          return {};
-        }
-
-        const headers = details.requestHeaders.map(header => {
-          if (header.name.toLowerCase() === 'user-agent') {
-            return { name: header.name, value: this.currentUserAgent };
-          }
-          return header;
+  async updateDeclarativeRules() {
+    try {
+      // Remove existing rules
+      const existingRules = await browser.declarativeNetRequest.getDynamicRules();
+      if (existingRules.length > 0) {
+        await browser.declarativeNetRequest.updateDynamicRules({
+          removeRuleIds: existingRules.map(rule => rule.id)
         });
+      }
 
-        return { requestHeaders: headers };
-      },
-      { urls: ['<all_urls>'] },
-      ['blocking', 'requestHeaders']
-    );
+      // Only add rules if extension is enabled and has a user agent
+      if (!this.isEnabled || !this.currentUserAgent) {
+        return;
+      }
+
+      // Create rules based on mode
+      let rules = [];
+      
+      if (this.mode === 'all') {
+        // Apply to all URLs
+        rules.push({
+          id: 1,
+          priority: 1,
+          action: {
+            type: 'modifyHeaders',
+            requestHeaders: [
+              {
+                header: 'User-Agent',
+                operation: 'set',
+                value: this.currentUserAgent
+              }
+            ]
+          },
+          condition: {
+            urlFilter: '*',
+            resourceTypes: ['main_frame', 'sub_frame', 'stylesheet', 'script', 'image', 'font', 'object', 'xmlhttprequest', 'ping', 'csp_report', 'media', 'websocket', 'other']
+          }
+        });
+      } else if (this.mode === 'whitelist' && this.whitelist.length > 0) {
+        // Apply only to whitelisted domains
+        this.whitelist.forEach((site, index) => {
+          rules.push({
+            id: index + 1,
+            priority: 1,
+            action: {
+              type: 'modifyHeaders',
+              requestHeaders: [
+                {
+                  header: 'User-Agent',
+                  operation: 'set',
+                  value: this.currentUserAgent
+                }
+              ]
+            },
+            condition: {
+              urlFilter: `*://*.${site}/*`,
+              resourceTypes: ['main_frame', 'sub_frame', 'stylesheet', 'script', 'image', 'font', 'object', 'xmlhttprequest', 'ping', 'csp_report', 'media', 'websocket', 'other']
+            }
+          });
+        });
+      } else if (this.mode === 'blacklist' && this.blacklist.length > 0) {
+        // Apply to all URLs except blacklisted domains
+        rules.push({
+          id: 1,
+          priority: 1,
+          action: {
+            type: 'modifyHeaders',
+            requestHeaders: [
+              {
+                header: 'User-Agent',
+                operation: 'set',
+                value: this.currentUserAgent
+              }
+            ]
+          },
+          condition: {
+            urlFilter: '*',
+            excludedDomains: this.blacklist,
+            resourceTypes: ['main_frame', 'sub_frame', 'stylesheet', 'script', 'image', 'font', 'object', 'xmlhttprequest', 'ping', 'csp_report', 'media', 'websocket', 'other']
+          }
+        });
+      }
+
+      // Add the rules
+      if (rules.length > 0) {
+        await browser.declarativeNetRequest.updateDynamicRules({
+          addRules: rules
+        });
+      }
+    } catch (error) {
+      console.error('Error updating declarative rules:', error);
+    }
   }
 
   shouldApplyUserAgent(url) {
@@ -421,42 +495,81 @@ async function startAutoRandomTimer() {
   if (minutes > 60) minutes = 60;
   const ms = minutes * 60 * 1000;
   autoRandomTimer = setInterval(runSmartRandom, ms);
+  console.log(`Auto random timer started: ${minutes} minutes (${ms}ms)`);
 }
 
 async function runSmartRandom() {
-  const prefs = await getPreferences();
-  // Use the same logic as smartRandom in popup.js
-  const filteredAgents = spoofer.userAgents.filter(ua => {
-    if (prefs.source && prefs.source !== 'all' && ua.source !== prefs.source) return false;
-    const uaLower = ua.ua.toLowerCase();
-    const deviceMatch = spoofer.checkDeviceMatch(uaLower, prefs.device);
-    const browserMatch = spoofer.checkBrowserMatch(uaLower, prefs.browser);
-    return deviceMatch && browserMatch;
-  });
-  if (filteredAgents.length > 0) {
-    const randomUA = filteredAgents[Math.floor(Math.random() * filteredAgents.length)].ua;
-    await spoofer.setUserAgent(randomUA);
+  try {
+    console.log('Auto random timer triggered - running smart random...');
+    const prefs = await getPreferences();
+    console.log('Current preferences:', prefs);
+    console.log('Available user agents:', spoofer.userAgents.length);
+    
+    // Use the same logic as smartRandom in popup.js
+    const filteredAgents = spoofer.userAgents.filter(ua => {
+      if (prefs.source && prefs.source !== 'all' && ua.source !== prefs.source) return false;
+      const uaLower = ua.ua.toLowerCase();
+      const deviceMatch = spoofer.checkDeviceMatch(uaLower, prefs.device);
+      const browserMatch = spoofer.checkBrowserMatch(uaLower, prefs.browser);
+      return deviceMatch && browserMatch;
+    });
+    
+    console.log('Filtered agents:', filteredAgents.length);
+    
+    if (filteredAgents.length > 0) {
+      const randomUA = filteredAgents[Math.floor(Math.random() * filteredAgents.length)].ua;
+      console.log('Selected random UA:', randomUA);
+      await spoofer.setUserAgent(randomUA);
+      console.log('User agent updated successfully');
+    } else {
+      console.log('No filtered agents available');
+    }
+  } catch (error) {
+    console.error('Error in runSmartRandom:', error);
   }
 }
 
 // Listen for storage changes
 browser.storage.onChanged.addListener((changes, area) => {
+  console.log('Storage changed:', changes, area);
   if (area === 'local' && ('enableInterval' in changes || 'intervalMinutes' in changes || 'preferredDevice' in changes || 'preferredBrowser' in changes || 'preferredSource' in changes)) {
+    console.log('Relevant storage change detected, updating timer...');
     getPreferences().then(prefs => {
       if (prefs.enableInterval) {
+        console.log('Storage change: starting timer');
         startAutoRandomTimer();
       } else {
+        console.log('Storage change: clearing timer');
         clearAutoRandomTimer();
       }
     });
   }
 });
 
-// On background startup, start timer if needed
-getPreferences().then(prefs => {
-  if (prefs.enableInterval) {
-    startAutoRandomTimer();
+// Initialize timer after spoofer is ready
+async function initializeTimer() {
+  try {
+    console.log('Initializing timer...');
+    const prefs = await getPreferences();
+    console.log('Timer preferences:', prefs);
+    if (prefs.enableInterval) {
+      console.log('Interval is enabled, starting timer...');
+      startAutoRandomTimer();
+    } else {
+      console.log('Interval is disabled, not starting timer');
+    }
+  } catch (error) {
+    console.error('Failed to initialize timer:', error);
   }
+}
+
+// Wait for spoofer to be ready before starting timer
+console.log('Starting spoofer initialization...');
+spoofer.init().then(() => {
+  console.log('Spoofer initialized successfully, initializing timer...');
+  initializeTimer();
+}).catch(error => {
+  console.error('Failed to initialize spoofer:', error);
 });
 
 // Handle messages from popup and content scripts

@@ -1,4 +1,4 @@
-// Content script for anti-detection measures
+// Content script for anti-detection measures (Manifest V3)
 (function() {
   'use strict';
 
@@ -7,13 +7,18 @@
   let currentUserAgent = null;
 
   // Get initial status
-  browser.runtime.sendMessage({ action: 'getStatus' }).then(status => {
-    isEnabled = status.isEnabled;
-    currentUserAgent = status.currentUserAgent;
-    if (isEnabled && currentUserAgent) {
-      injectAntiDetection();
+  async function initializeContentScript() {
+    try {
+      const status = await browser.runtime.sendMessage({ action: 'getStatus' });
+      isEnabled = status.isEnabled;
+      currentUserAgent = status.currentUserAgent;
+      if (isEnabled && currentUserAgent) {
+        injectAntiDetection();
+      }
+    } catch (error) {
+      console.error('Failed to get initial status:', error);
     }
-  });
+  }
 
   // Listen for status updates
   browser.runtime.onMessage.addListener((message) => {
@@ -255,5 +260,12 @@
       appCodeName,
       browser
     };
+  }
+
+  // Initialize when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeContentScript);
+  } else {
+    initializeContentScript();
   }
 })(); 

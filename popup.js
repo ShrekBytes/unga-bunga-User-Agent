@@ -1,4 +1,4 @@
-// Popup script for User Agent Spoofer
+// Popup script for User Agent Spoofer (Manifest V3)
 class PopupUI {
   constructor() {
     this.userAgents = [];
@@ -16,19 +16,26 @@ class PopupUI {
 
   showToast(message, type = 'success') {
     const toast = document.getElementById('toast');
-    toast.textContent = message;
-    toast.className = `toast ${type} show`;
-    
-    setTimeout(() => {
-      toast.classList.remove('show');
-    }, 3000);
+    if (toast) {
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
   }
 
   async init() {
-    this.setupEventListeners();
-    await this.loadPreferences();
-    await this.loadStatus();
-    await this.loadUserAgents();
+    try {
+      this.setupEventListeners();
+      await this.loadPreferences();
+      await this.loadStatus();
+      await this.loadUserAgents();
+    } catch (error) {
+      console.error('Failed to initialize popup:', error);
+      this.showToast('Failed to initialize extension', 'error');
+    }
   }
 
   setupEventListeners() {

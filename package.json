@@ -1,0 +1,46 @@
+{
+  "name": "unga-bunga-user-agent",
+  "version": "1.1.0",
+  "description": "A powerful and user-friendly Firefox extension for advanced user agent spoofing",
+  "main": "background.js",
+  "scripts": {
+    "build": "node build.js build",
+    "dev": "node build.js dev",
+    "clean": "node build.js clean",
+    "package": "node build.js package",
+    "lint": "node build.js lint",
+    "validate": "node build.js validate",
+    "test": "echo 'No tests specified'",
+    "start": "npm run dev"
+  },
+  "keywords": [
+    "firefox-extension",
+    "user-agent",
+    "privacy",
+    "anti-detection",
+    "web-extension",
+    "manifest-v3"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "firefox": ">=109.0",
+    "node": ">=16.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/unga-bunga-User-Agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/unga-bunga-User-Agent/issues"
+  },
+  "homepage": "https://github.com/yourusername/unga-bunga-User-Agent#readme",
+  "devDependencies": {
+    "eslint": "^8.0.0"
+  },
+  "optionalDependencies": {},
+  "peerDependencies": {},
+  "browserslist": [
+    "Firefox >= 109"
+  ]
+}
