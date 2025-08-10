@@ -2,7 +2,9 @@
 
 A powerful and user-friendly Firefox extension for advanced user agent spoofing with anti-detection features.
 
-![Extension Badge](icons/icon.svg)
+![Extension Badge](icons/icon.svg) [![License](https://img.shields.io/badge/License-GPL%20v3-green?style=for-the-badge)](LICENSE)
+[![Firefox](https://img.shields.io/badge/Firefox-Add--on-orange?style=for-the-badge&logo=firefox)](https://addons.mozilla.org/firefox/addon/unga-bunga-user-agent/)
+
 
 ## 📋 Table of Contents
 
@@ -15,6 +17,7 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 - [Troubleshooting](#-troubleshooting)
 - [Contributing](#-contributing)
 - [License](#-license)
+
 
 ## ✨ Features
 
@@ -43,6 +46,7 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 - **Smart Random**: Intelligent user agent selection based on preferences
 - **Auto-Random**: Automatic user agent rotation at set intervals
 
+
 ## 📦 Installation
 
 ### From Firefox Add-ons Store (Recommended)
@@ -58,6 +62,7 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 2. Open Firefox and go to `about:debugging`
 3. Click "This Firefox" → "Load Temporary Add-on"
 4. Select the `manifest.json` file
+
 
 ## 🚀 Quick Start
 
@@ -77,6 +82,7 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
    - Check the badge color for status confirmation
 
 ![Quick Start](screenshots/quick.png)
+
 
 ## 📖 Usage Guide
 
@@ -116,6 +122,7 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 
 ![Custom User Agents](screenshots/custom.png)
 
+
 ## 🔧 Advanced Features
 
 ### Site-Specific Control
@@ -150,6 +157,7 @@ Click "Advanced Options" to access site-specific settings:
 
 ![Site Management](screenshots/mode_add.png)
 
+
 ## 🎨 Badge Indicators
 
 The extension icon shows your current status:
@@ -163,6 +171,7 @@ The extension icon shows your current status:
 
 ![Badge Examples](screenshots/badge.png)
 
+
 ## 🔄 Update User Agents
 
 - **Automatic**: User agents are cached for 24 hours
@@ -170,6 +179,7 @@ The extension icon shows your current status:
 - **Latest Sources**: Always get the most recent user agent strings
 
 ![Update](screenshots/update.png)
+
 
 ## 🛠️ Troubleshooting
 
@@ -191,24 +201,12 @@ The extension icon shows your current status:
 - Click "Show" next to "Advanced Options"
 - The section is collapsed by default
 
+
 ## 🤝 Contributing
 
-1. **Report Bugs**: Open an issue with detailed description
-2. **Feature Requests**: Suggest new features via issues
-3. **Code Contributions**: Fork the repository and submit pull requests
-4. **Documentation**: Help improve this README
+Found a bug or have a feature request?
+[Open an issue](https://github.com/ShrekBytes/unga-bunga-User-Agent/issues) or submit a pull request.
 
-### Development Setup
-
-```bash
-git clone https://github.com/ShrekBytes/unga-bunga-User-Agent.git
-cd unga-bunga-User-Agent
-# Load as temporary add-on in Firefox
-```
-
-## 📄 License
-
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
@@ -216,8 +214,8 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 - Useragents.me
 - Open source community
 
----
 
-[![GitHub](https://img.shields.io/badge/GitHub-View%20on%20GitHub-blue?style=for-the-badge&logo=github)](https://github.com/your-username/unga-bunga-User-Agent)
-[![License](https://img.shields.io/badge/License-GPL%20v3-green?style=for-the-badge)](LICENSE)
-[![Firefox](https://img.shields.io/badge/Firefox-Add--on-orange?style=for-the-badge&logo=firefox)](https://addons.mozilla.org/firefox/addon/unga-bunga-user-agent/)
+## 📄 License
+
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
