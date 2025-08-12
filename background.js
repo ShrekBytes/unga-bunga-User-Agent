@@ -297,18 +297,39 @@ class UserAgentSpoofer {
     if (this.userAgents.length === 0) return [];
     
     return this.userAgents.filter(ua => {
-      // Filter by source first
-      if (source && source !== 'all' && ua.source !== source) {
-        return false;
-      }
-      
       const uaLower = ua.ua.toLowerCase();
       
-      // Check device match
-      const deviceMatch = this.checkDeviceMatch(uaLower, device);
+      // Filter by source - handle both string and array
+      let sourceMatch = true;
+      if (source && source !== 'all') {
+        if (Array.isArray(source)) {
+          sourceMatch = source.includes('all') || source.includes(ua.source);
+        } else {
+          sourceMatch = ua.source === source;
+        }
+      }
+      if (!sourceMatch) return false;
       
-      // Check browser match
-      const browserMatch = this.checkBrowserMatch(uaLower, browser);
+      // Check device match - handle both string and array
+      let deviceMatch = true;
+      if (device) {
+        if (Array.isArray(device)) {
+          deviceMatch = device.some(d => this.checkDeviceMatch(uaLower, d));
+        } else {
+          deviceMatch = this.checkDeviceMatch(uaLower, device);
+        }
+      }
+      if (!deviceMatch) return false;
+      
+      // Check browser match - handle both string and array
+      let browserMatch = true;
+      if (browser) {
+        if (Array.isArray(browser)) {
+          browserMatch = browser.some(b => this.checkBrowserMatch(uaLower, b));
+        } else {
+          browserMatch = this.checkBrowserMatch(uaLower, browser);
+        }
+      }
       
       return deviceMatch && browserMatch;
     });
@@ -397,9 +418,9 @@ async function getPreferences() {
     'enableInterval'
   ]);
   return {
-    device: prefs.preferredDevice || 'android',
-    browser: prefs.preferredBrowser || 'chrome',
-    source: prefs.preferredSource || 'all',
+    device: prefs.preferredDevice || ['all'],
+    browser: prefs.preferredBrowser || ['all'],
+    source: prefs.preferredSource || ['all'],
     intervalMinutes: prefs.intervalMinutes || 5,
     enableInterval: prefs.enableInterval || false
   };
@@ -425,14 +446,8 @@ async function startAutoRandomTimer() {
 
 async function runSmartRandom() {
   const prefs = await getPreferences();
-  // Use the same logic as smartRandom in popup.js
-  const filteredAgents = spoofer.userAgents.filter(ua => {
-    if (prefs.source && prefs.source !== 'all' && ua.source !== prefs.source) return false;
-    const uaLower = ua.ua.toLowerCase();
-    const deviceMatch = spoofer.checkDeviceMatch(uaLower, prefs.device);
-    const browserMatch = spoofer.checkBrowserMatch(uaLower, prefs.browser);
-    return deviceMatch && browserMatch;
-  });
+  // Use the existing getFilteredUserAgents method
+  const filteredAgents = spoofer.getFilteredUserAgents(prefs.device, prefs.browser, prefs.source);
   if (filteredAgents.length > 0) {
     const randomUA = filteredAgents[Math.floor(Math.random() * filteredAgents.length)].ua;
     await spoofer.setUserAgent(randomUA);

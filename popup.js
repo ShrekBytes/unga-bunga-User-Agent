@@ -4,13 +4,20 @@ class PopupUI {
     this.userAgents = [];
     this.customUserAgents = [];
     this.preferences = {
-      device: 'android',
-      browser: 'chrome',
-      source: 'all'
+      device: ['all'],
+      browser: ['all'],
+      source: ['all']
     };
     this.mode = 'all';
     this.whitelist = [];
     this.blacklist = [];
+    this.updateTimeout = null;
+    this.isUpdatingPreferences = false;
+    
+    // Performance optimizations
+    this.cachedFilterCount = null;
+    this.lastPreferencesHash = null;
+    
     this.init();
   }
 
@@ -29,6 +36,12 @@ class PopupUI {
     await this.loadPreferences();
     await this.loadStatus();
     await this.loadUserAgents();
+    
+    // Single, efficient initialization with DOM ready check
+    this.waitForDOMReady().then(async () => {
+      this.setupCheckboxEventListeners();
+      await this.updateAllUIComponents();
+    });
   }
 
   setupEventListeners() {
@@ -96,6 +109,61 @@ class PopupUI {
 
     // Advanced Options
     this.setupAdvancedOptions();
+  }
+
+  setupCheckboxEventListeners() {
+    try {
+      // Add change listeners for checkboxes
+      const deviceCheckboxes = document.querySelectorAll('input[name="preferredDevice"]');
+      if (deviceCheckboxes.length === 0) {
+        console.error('No device checkboxes found!');
+        return;
+      }
+      deviceCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', async (e) => {
+          try {
+            this.debouncedUpdatePreferences('device');
+            await this.renderUserAgentList();
+          } catch (error) {
+            console.error('Error handling device checkbox change:', error);
+          }
+        });
+      });
+
+      const browserCheckboxes = document.querySelectorAll('input[name="preferredBrowser"]');
+      if (browserCheckboxes.length === 0) {
+        console.error('No browser checkboxes found!');
+        return;
+      }
+      browserCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', async (e) => {
+          try {
+            this.debouncedUpdatePreferences('browser');
+            await this.renderUserAgentList();
+          } catch (error) {
+            console.error('Error handling browser checkbox change:', error);
+          }
+        });
+      });
+
+      const sourceCheckboxes = document.querySelectorAll('input[name="preferredSource"]');
+      if (sourceCheckboxes.length === 0) {
+        console.error('No source checkboxes found!');
+        return;
+      }
+      sourceCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', async (e) => {
+          try {
+            this.debouncedUpdatePreferences('source');
+            await this.renderUserAgentList();
+          } catch (error) {
+            console.error('Error handling source checkbox change:', error);
+          }
+        });
+      });
+    } catch (error) {
+      console.error('Error setting up checkbox event listeners:', error);
+    }
   }
 
   setupAdvancedOptions() {
@@ -286,18 +354,21 @@ class PopupUI {
       // Load saved preferences
       const result = await browser.storage.local.get(['preferredDevice', 'preferredBrowser', 'preferredSource', 'enableInterval', 'intervalMinutes']);
       
+      // Load device preferences
       if (result.preferredDevice) {
-        this.preferences.device = result.preferredDevice;
-        document.querySelector(`input[name="preferredDevice"][value="${result.preferredDevice}"]`).checked = true;
+        this.preferences.device = Array.isArray(result.preferredDevice) ? result.preferredDevice : [result.preferredDevice];
       }
+      
+      // Load browser preferences
       if (result.preferredBrowser) {
-        this.preferences.browser = result.preferredBrowser;
-        document.querySelector(`input[name="preferredBrowser"][value="${result.preferredBrowser}"]`).checked = true;
+        this.preferences.browser = Array.isArray(result.preferredBrowser) ? result.preferredBrowser : [result.preferredBrowser];
       }
+      
+      // Load source preferences
       if (result.preferredSource) {
-        this.preferences.source = result.preferredSource;
-        document.querySelector(`input[name="preferredSource"][value="${result.preferredSource}"]`).checked = true;
+        this.preferences.source = Array.isArray(result.preferredSource) ? result.preferredSource : [result.preferredSource];
       }
+      
       if (result.intervalMinutes) {
         document.getElementById('intervalMinutes').value = result.intervalMinutes;
       }
@@ -305,30 +376,8 @@ class PopupUI {
         document.getElementById('enableInterval').checked = true;
       }
 
-      // Add change listeners
-      document.querySelectorAll('input[name="preferredDevice"]').forEach(radio => {
-        radio.addEventListener('change', async (e) => {
-          this.preferences.device = e.target.value;
-          browser.storage.local.set({ preferredDevice: e.target.value });
-          await this.renderUserAgentList();
-        });
-      });
-
-      document.querySelectorAll('input[name="preferredBrowser"]').forEach(radio => {
-        radio.addEventListener('change', async (e) => {
-          this.preferences.browser = e.target.value;
-          browser.storage.local.set({ preferredBrowser: e.target.value });
-          await this.renderUserAgentList();
-        });
-      });
-
-      document.querySelectorAll('input[name="preferredSource"]').forEach(radio => {
-        radio.addEventListener('change', async (e) => {
-          this.preferences.source = e.target.value;
-          browser.storage.local.set({ preferredSource: e.target.value });
-          await this.renderUserAgentList();
-        });
-      });
+      // Update checkbox states
+      this.updateCheckboxStates();
 
       // Save intervalMinutes on input
       document.getElementById('intervalMinutes').addEventListener('input', (e) => {
@@ -342,6 +391,329 @@ class PopupUI {
     } catch (error) {
       console.error('Failed to load preferences:', error);
     }
+  }
+
+  updateCheckboxStates() {
+    // Update device checkboxes
+    document.querySelectorAll('input[name="preferredDevice"]').forEach(checkbox => {
+      checkbox.checked = this.preferences.device.includes(checkbox.value);
+    });
+
+    // Update browser checkboxes
+    document.querySelectorAll('input[name="preferredBrowser"]').forEach(checkbox => {
+      checkbox.checked = this.preferences.browser.includes(checkbox.value);
+    });
+
+    // Update source checkboxes
+    document.querySelectorAll('input[name="preferredSource"]').forEach(checkbox => {
+      checkbox.checked = this.preferences.source.includes(checkbox.value);
+    });
+  }
+
+  async updatePreferencesFromCheckboxes(preferenceType) {
+    // Prevent recursive calls
+    if (this.isUpdatingPreferences) {
+      return;
+    }
+    
+    try {
+      this.isUpdatingPreferences = true;
+      
+      const checkboxes = document.querySelectorAll(`input[name="preferred${preferenceType.charAt(0).toUpperCase() + preferenceType.slice(1)}"]`);
+      
+      // Get current checkbox states
+      const selectedValues = [];
+      let hasAllOption = false;
+      
+      checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+          if (checkbox.value === 'all') {
+            hasAllOption = true;
+          }
+          selectedValues.push(checkbox.value);
+        }
+      });
+
+      console.log('Processing preferences for:', preferenceType, 'Selected values:', selectedValues, 'Has all:', hasAllOption);
+
+      // Determine what the user wants based on the current state
+      let finalSelectedValues = [];
+      
+      // Check if this is a fresh "All" selection (user just clicked "All")
+      const allCheckbox = document.querySelector(`input[name="preferred${preferenceType.charAt(0).toUpperCase() + preferenceType.slice(1)}"][value="all"]`);
+      const wasAllPreviouslySelected = this.preferences[preferenceType].includes('all');
+      
+      if (hasAllOption && selectedValues.length === 1) {
+        // User clicked "All" and only "All" is selected - this is what we want
+        finalSelectedValues = ['all'];
+        console.log('Only all is selected, keeping it');
+      } else if (hasAllOption && selectedValues.length > 1 && !wasAllPreviouslySelected) {
+        // User just clicked "All" while having other options - they want "All" now
+        finalSelectedValues = ['all'];
+        console.log('User clicked All while having other options, switching to All');
+      } else if (hasAllOption && selectedValues.length > 1 && wasAllPreviouslySelected) {
+        // User has "All" + other options and "All" was previously selected - they want individual selections
+        finalSelectedValues = selectedValues.filter(val => val !== 'all');
+        console.log('All was selected with others, now keeping individual selections:', finalSelectedValues);
+      } else if (!hasAllOption && selectedValues.length > 0) {
+        // User has only individual options selected
+        finalSelectedValues = selectedValues;
+        console.log('Individual options selected:', finalSelectedValues);
+      } else {
+        // Nothing selected - default to "All"
+        finalSelectedValues = ['all'];
+        console.log('No options selected, defaulting to all');
+      }
+
+      // Update preferences
+      this.preferences[preferenceType] = finalSelectedValues;
+      
+      // Invalidate cache since preferences changed
+      this.cachedFilterCount = null;
+      this.lastPreferencesHash = null;
+      
+      // Update checkbox states to match the final selection
+      this.updateCheckboxStates();
+      
+      // Save to storage
+      const storageKey = `preferred${preferenceType.charAt(0).toUpperCase() + preferenceType.slice(1)}`;
+      try {
+        await browser.storage.local.set({ [storageKey]: finalSelectedValues });
+        
+        // Ensure all UI components are updated consistently
+        await this.updateAllUIComponents();
+      } catch (error) {
+        console.error('Error saving to storage:', error);
+      }
+    } catch (error) {
+      console.error('Error in updatePreferencesFromCheckboxes:', error);
+    } finally {
+      this.isUpdatingPreferences = false;
+    }
+  }
+
+  debouncedUpdatePreferences(preferenceType) {
+    // Clear any existing timeout
+    if (this.updateTimeout) {
+      clearTimeout(this.updateTimeout);
+    }
+    
+    // Set a new timeout to update preferences after a short delay
+    this.updateTimeout = setTimeout(() => {
+      this.updatePreferencesFromCheckboxes(preferenceType);
+    }, 150); // Increased slightly for better performance
+  }
+
+  async updateAllUIComponents() {
+    try {
+      // Only log in development mode
+      if (this.isDevelopmentMode()) {
+        console.log('Updating all UI components...');
+        console.log('Current preferences:', this.preferences);
+      }
+      
+      // Update the user agent list with current preferences
+      await this.renderUserAgentList();
+      
+      // Update the filter count display
+      this.updateFilterCount();
+      
+      // Update any other UI elements that depend on preferences
+      this.updatePreferenceDependentUI();
+      
+      if (this.isDevelopmentMode()) {
+        console.log('UI components updated successfully');
+      }
+    } catch (error) {
+      console.error('Error updating UI components:', error);
+    }
+  }
+
+  updateFilterCount() {
+    try {
+      if (this.isDevelopmentMode()) {
+        console.log('Updating filter count...');
+      }
+      
+      const countContainer = document.getElementById('uaCount');
+      if (!countContainer) {
+        if (this.isDevelopmentMode()) {
+          console.log('Count container not found');
+        }
+        return;
+      }
+
+      // Get the current filtered count based on preferences
+      const filteredCount = this.getFilteredUserAgentCount();
+      const globalCount = this.userAgents.length;
+      
+      if (this.isDevelopmentMode()) {
+        console.log('Filtered count:', filteredCount, 'Global count:', globalCount);
+      }
+
+      // Clear and create count elements safely
+      countContainer.textContent = '';
+      const filteredSpan = document.createElement('span');
+      filteredSpan.textContent = `Filtered: ${filteredCount} user agents`;
+      const globalSpan = document.createElement('span');
+      globalSpan.className = 'global-count';
+      globalSpan.textContent = `Global: ${globalCount} user agents`;
+      countContainer.appendChild(filteredSpan);
+      countContainer.appendChild(globalSpan);
+      
+      if (this.isDevelopmentMode()) {
+        console.log('Filter count updated successfully');
+      }
+    } catch (error) {
+      console.error('Error updating filter count:', error);
+    }
+  }
+
+    getFilteredUserAgentCount() {
+    try {
+      // Check cache first
+      const currentHash = this.getPreferencesHash();
+      if (this.cachedFilterCount !== null && this.lastPreferencesHash === currentHash) {
+        return this.cachedFilterCount;
+      }
+      
+      if (this.isDevelopmentMode()) {
+        console.log('Getting filtered user agent count...');
+        console.log('User agents loaded:', this.userAgents.length);
+        console.log('Preferences:', this.preferences);
+      }
+      
+      // Early return if no user agents loaded
+      if (!this.userAgents.length) return 0;
+      
+      // Early return if all preferences are 'all'
+      if (this.preferences.device.includes('all') && 
+          this.preferences.browser.includes('all') && 
+          this.preferences.source.includes('all')) {
+        this.cachedFilterCount = this.userAgents.length;
+        this.lastPreferencesHash = currentHash;
+        return this.cachedFilterCount;
+      }
+      
+      // Use the same filtering logic as the background script
+      const filteredAgents = this.userAgents.filter(ua => {
+        const uaLower = ua.ua.toLowerCase();
+        
+        // Filter by source
+        let sourceMatch = true;
+        if (this.preferences.source && this.preferences.source.length > 0) {
+          if (this.preferences.source.includes('all')) {
+            sourceMatch = true;
+          } else {
+            sourceMatch = this.preferences.source.includes(ua.source);
+          }
+        }
+        if (!sourceMatch) return false;
+        
+        // Filter by device
+        let deviceMatch = true;
+        if (this.preferences.device && this.preferences.device.length > 0) {
+          if (this.preferences.device.includes('all')) {
+            deviceMatch = true;
+          } else {
+            deviceMatch = this.preferences.device.some(d => this.checkDeviceMatch(uaLower, d));
+          }
+        }
+        if (!deviceMatch) return false;
+        
+        // Filter by browser
+        let browserMatch = true;
+        if (this.preferences.browser && this.preferences.browser.length > 0) {
+          if (this.preferences.browser.includes('all')) {
+            browserMatch = true;
+          } else {
+            browserMatch = this.preferences.browser.some(b => this.checkBrowserMatch(uaLower, b));
+          }
+        }
+        
+        return deviceMatch && browserMatch;
+      });
+      
+      // Cache the result
+      this.cachedFilterCount = filteredAgents.length;
+      this.lastPreferencesHash = currentHash;
+      
+      if (this.isDevelopmentMode()) {
+        console.log('Filtered agents count:', filteredAgents.length);
+      }
+      return this.cachedFilterCount;
+    } catch (error) {
+      console.error('Error getting filtered user agent count:', error);
+      return 0;
+    }
+  }
+
+  checkDeviceMatch(userAgent, device) {
+    switch (device) {
+      case 'android': return userAgent.includes('android');
+      case 'iphone': return userAgent.includes('iphone');
+      case 'ipad': return userAgent.includes('ipad');
+      case 'linux': return userAgent.includes('linux') && !userAgent.includes('android');
+      case 'mac': return userAgent.includes('macintosh');
+      case 'windows': return userAgent.includes('windows');
+      default: return true;
+    }
+  }
+
+  checkBrowserMatch(userAgent, browser) {
+    switch (browser) {
+      case 'chrome':
+        return userAgent.includes('chrome') &&
+          !userAgent.includes('edg') &&
+          !userAgent.includes('edge') &&
+          !userAgent.includes('opr') &&
+          !userAgent.includes('opera') &&
+          !userAgent.includes('vivaldi');
+      case 'edge':
+        return userAgent.includes('edg/') || userAgent.includes('edge/');
+      case 'opera':
+        return userAgent.includes('opr/') || userAgent.includes('opera');
+      case 'vivaldi':
+        return userAgent.includes('vivaldi');
+      case 'firefox':
+        return userAgent.includes('firefox') && !userAgent.includes('seamonkey');
+      case 'safari':
+        return userAgent.includes('safari') &&
+          !userAgent.includes('chrome') &&
+          !userAgent.includes('crios') &&
+          !userAgent.includes('edg') &&
+          !userAgent.includes('edge') &&
+          !userAgent.includes('opr') &&
+          !userAgent.includes('opera') &&
+          !userAgent.includes('vivaldi');
+      default:
+        return true;
+    }
+  }
+
+  updatePreferenceDependentUI() {
+    // Update any other UI elements that depend on preferences
+    // This can be expanded as needed
+  }
+
+  waitForDOMReady() {
+    return new Promise((resolve) => {
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        resolve();
+      } else {
+        document.addEventListener('DOMContentLoaded', resolve, { once: true });
+      }
+    });
+  }
+
+  isDevelopmentMode() {
+    // Check if we're in development mode (you can toggle this)
+    return false; // Set to true for debugging, false for production
+  }
+
+  getPreferencesHash() {
+    // Create a simple hash of preferences for caching
+    return JSON.stringify(this.preferences);
   }
 
   async loadStatus() {
@@ -521,7 +893,6 @@ class PopupUI {
 
   async renderUserAgentList(currentUserAgent = null) {
     const container = document.getElementById('uaList');
-    const countContainer = document.getElementById('uaCount');
     
     // Get filtered user agents from background script (same logic as smart random)
     const response = await browser.runtime.sendMessage({
@@ -532,20 +903,6 @@ class PopupUI {
     });
     
     const filteredAgents = response.userAgents || [];
-
-    // Update counts
-    const globalCount = this.userAgents.length;
-    const filteredCount = filteredAgents.length;
-    
-    // Clear and create count elements safely
-    countContainer.textContent = '';
-    const filteredSpan = document.createElement('span');
-    filteredSpan.textContent = `Filtered: ${filteredCount} user agents`;
-    const globalSpan = document.createElement('span');
-    globalSpan.className = 'global-count';
-    globalSpan.textContent = `Global: ${globalCount} user agents`;
-    countContainer.appendChild(filteredSpan);
-    countContainer.appendChild(globalSpan);
 
     if (filteredAgents.length === 0) {
       container.textContent = '';
