@@ -290,6 +290,81 @@ input:checked + .slider:before {
   letter-spacing: 0.5px;
 }
 
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 0;
+  font-size: 13px;
+  color: #e8e8e8;
+  transition: 0.15s ease;
+  border-radius: 2px;
+  padding-left: 6px;
+  margin-left: -6px;
+}
+
+.checkbox-option:hover {
+  color: #ffffff;
+  background: #1a1a1a;
+}
+
+.checkbox-option input[type="checkbox"] {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #3a3a3a;
+  border-radius: 2px;
+  background: #1a1a1a;
+  cursor: pointer;
+  position: relative;
+  transition: 0.15s ease;
+}
+
+.checkbox-option input[type="checkbox"]:checked {
+  border-color: #38b2ac;
+  background: #38b2ac;
+}
+
+.checkbox-option input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: -1px;
+  left: 1px;
+  font-size: 10px;
+  font-weight: bold;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.checkbox-option input[type="checkbox"]:hover {
+  border-color: #4a4a4a;
+}
+
+.checkbox-divider {
+  border: none;
+  border-top: 1px solid #2a2a2a;
+  margin: 8px 0;
+  opacity: 0.5;
+}
+
+.select-all-option {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.select-all-option input[type="checkbox"]:checked {
+  border-color: #38b2ac;
+  background: #38b2ac;
+}
+
+/* Keep radio styles for other parts of the UI */
 .radio-group {
   display: flex;
   flex-direction: column;
