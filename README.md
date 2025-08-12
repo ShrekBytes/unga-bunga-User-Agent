@@ -98,6 +98,7 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 ![Basic Controls](screenshots/hero.png)
 
 #### Preferences Section
+> You can choose multiple, all, one, as per your need
 
 - **Device Filter**: Choose Android, iPhone, iPad, Linux, Mac, or Windows
 - **Browser Filter**: Select Chrome, Firefox, Edge, Opera, Safari, or Vivaldi
