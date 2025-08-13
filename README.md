@@ -29,22 +29,17 @@ A powerful and user-friendly Firefox extension for advanced user agent spoofing 
 
 ### 🎯 Core Functionality
 
-- **Smart User Agent Spoofing**: Automatically change your browser's user agent string
-- **Anti-Detection**: Advanced features to prevent websites from detecting spoofing
-- **Real-time Updates**: Live user agent changes without page refresh
+- **Preference**: Can select devices, browsers - (all, one, multi category)
+- **Multiple Modes**: All sites, Whitelist, or Blacklist operation
+- **Custom User Agents**: Add your own user agent strings and can add to lists
+- **Smart Random**: Intelligent user agent selection based on preferences
+- **Auto-Random**: Automatic user agent rotation at set intervals from the selected preferences
 
 ### 🎨 Modern Interface
 
 - **Clean, Minimal Design**: Modern dark theme with intuitive controls
-- **Responsive Layout**: Optimized for all screen sizes
+- **Responsive Layout**: Optimized for all screen sizes(desktop, mobile)
 - **Visual Feedback**: Toast notifications and status indicators
-
-### 🔧 Advanced Options
-
-- **Multiple Modes**: All sites, Whitelist, or Blacklist operation
-- **Custom User Agents**: Add your own user agent strings
-- **Smart Random**: Intelligent user agent selection based on preferences
-- **Auto-Random**: Automatic user agent rotation at set intervals
 
 
 ## 📦 Installation
