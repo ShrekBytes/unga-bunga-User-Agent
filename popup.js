@@ -108,7 +108,7 @@ class PopupUI {
         
         await this.loadStatus();
         await this.renderUserAgentList();
-        this.showToast('User agent applied and extension enabled', 'success');
+        this.showToast('User agent applied', 'success');
       } else {
         this.showToast('Please enter a user agent', 'warning');
       }
@@ -200,7 +200,12 @@ class PopupUI {
       'all': 'All'
     };
     const label = sourceLabels[source] || 'Filtered';
-    btn.innerHTML = `${label} <span class="dropdown-arrow">▼</span>`;
+    // Clear and rebuild button content safely
+    btn.textContent = label + ' ';
+    const arrow = document.createElement('span');
+    arrow.className = 'dropdown-arrow';
+    arrow.textContent = '▼';
+    btn.appendChild(arrow);
   }
 
 
@@ -981,11 +986,17 @@ class PopupUI {
     if (this.currentTab === 'favorites') {
       // Show only favorites
       agentsToDisplay = this.userAgents.filter(ua => this.favoriteUserAgents.includes(ua.ua));
-      countElement.innerHTML = `<span>Favorites: ${agentsToDisplay.length} user agents</span>`;
+      countElement.textContent = '';
+      const span = document.createElement('span');
+      span.textContent = `Favorites: ${agentsToDisplay.length} user agents`;
+      countElement.appendChild(span);
     } else if (this.currentTab === 'all') {
       // Show all user agents
       agentsToDisplay = this.userAgents;
-      countElement.innerHTML = `<span>All: ${agentsToDisplay.length} user agents</span>`;
+      countElement.textContent = '';
+      const span = document.createElement('span');
+      span.textContent = `All: ${agentsToDisplay.length} user agents`;
+      countElement.appendChild(span);
     } else {
       // Show filtered user agents
       const response = await browser.runtime.sendMessage({
@@ -995,7 +1006,14 @@ class PopupUI {
         source: this.preferences.source
       });
       agentsToDisplay = response.userAgents || [];
-      countElement.innerHTML = `<span>Filtered: ${agentsToDisplay.length} user agents</span><span class="global-count">Global: ${this.userAgents.length} user agents</span>`;
+      countElement.textContent = '';
+      const span1 = document.createElement('span');
+      span1.textContent = `Filtered: ${agentsToDisplay.length} user agents`;
+      const span2 = document.createElement('span');
+      span2.className = 'global-count';
+      span2.textContent = `Global: ${this.userAgents.length} user agents`;
+      countElement.appendChild(span1);
+      countElement.appendChild(span2);
     }
 
     if (agentsToDisplay.length === 0) {
@@ -1136,7 +1154,7 @@ class PopupUI {
       
       await this.loadStatus();
       await this.renderUserAgentList();
-      this.showToast('User agent selected and extension enabled', 'success');
+      this.showToast('User agent selected', 'success');
     } catch (error) {
       console.error('Failed to select user agent:', error);
     }

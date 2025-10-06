@@ -45,7 +45,6 @@
   
   "web_accessible_resources": [
     "inject/main.js",
-    "inject/override.js",
-    "inject/isolated.js"
+    "inject/override.js"
   ]
 } 
