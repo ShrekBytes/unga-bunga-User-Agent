@@ -128,6 +128,11 @@
           </div>
         </div>
       </div>
+      <div class="ua-tabs">
+        <button class="ua-tab" data-tab="filtered">Filtered</button>
+        <button class="ua-tab" data-tab="favorites">⭐ Favorites</button>
+        <button class="ua-tab" data-tab="all">All</button>
+      </div>
       <div class="user-agent-count" id="uaCount">
         <span>Filtered: 0 user agents</span>
         <span class="global-count">Global: 0 user agents</span>
@@ -136,7 +141,20 @@
         <div class="loading">Loading user agents...</div>
       </div>
       <div class="preference-actions">
-        <button id="smartRandomBtn" class="btn btn-secondary">Smart Random</button>
+        <div class="random-source-wrapper">
+          <div class="dropdown-wrapper inline-dropdown">
+            <button id="randomSourceBtn" class="btn btn-secondary dropdown-btn">
+              Filtered
+              <span class="dropdown-arrow">▼</span>
+            </button>
+            <div id="randomSourceMenu" class="dropdown-menu">
+              <div class="dropdown-item" data-source="filtered">Filtered</div>
+              <div class="dropdown-item" data-source="favorites">Favorites</div>
+              <div class="dropdown-item" data-source="all">All</div>
+            </div>
+          </div>
+          <button id="randomizeBtn" class="btn btn-primary">Select Randomly</button>
+        </div>
       </div>
       <div class="interval-section">
         <div class="interval-header">

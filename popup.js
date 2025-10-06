@@ -3,6 +3,9 @@ class PopupUI {
   constructor() {
     this.userAgents = [];
     this.customUserAgents = [];
+    this.favoriteUserAgents = [];
+    this.currentTab = 'filtered';
+    this.randomSource = 'filtered';
     this.preferences = {
       device: ['all'],
       browser: ['all'],
@@ -33,6 +36,8 @@ class PopupUI {
 
   async init() {
     this.setupEventListeners();
+    this.setupTabListeners();
+    this.setupDropdownListeners();
     await this.loadPreferences();
     await this.loadStatus();
     await this.loadUserAgents();
@@ -41,6 +46,10 @@ class PopupUI {
     this.waitForDOMReady().then(async () => {
       this.setupCheckboxEventListeners();
       await this.updateAllUIComponents();
+      // Set initial tab
+      this.setTab(this.currentTab);
+      // Initialize dropdown button labels
+      this.updateRandomSourceButtonText(this.randomSource);
     });
   }
 
@@ -59,11 +68,7 @@ class PopupUI {
       this.refreshUserAgents();
     });
 
-    // Smart Random and Interval
-    document.getElementById('smartRandomBtn').addEventListener('click', () => {
-      this.smartRandom();
-    });
-
+    // Interval settings
     document.getElementById('enableInterval').addEventListener('change', (e) => {
       this.toggleInterval(e.target.checked);
     });
@@ -92,24 +97,112 @@ class PopupUI {
     document.getElementById('applyUA').addEventListener('click', async () => {
       const ua = document.getElementById('currentUATextarea').value.trim();
       if (ua) {
+        // Apply the user agent
         await browser.runtime.sendMessage({ action: 'setUserAgent', userAgent: ua });
+        
+        // Enable the extension if it's not already enabled
+        const status = await browser.runtime.sendMessage({ action: 'getStatus' });
+        if (!status.isEnabled) {
+          await browser.runtime.sendMessage({ action: 'toggleEnabled' });
+        }
+        
         await this.loadStatus();
         await this.renderUserAgentList();
-        this.showToast('User agent applied successfully', 'success');
+        this.showToast('User agent applied and extension enabled', 'success');
       } else {
         this.showToast('Please enter a user agent', 'warning');
       }
     });
     document.getElementById('resetDefaultUA').addEventListener('click', async () => {
+      // Reset UA to null/default
       await browser.runtime.sendMessage({ action: 'setUserAgent', userAgent: null });
+      
+      // Disable the extension
+      const status = await browser.runtime.sendMessage({ action: 'getStatus' });
+      if (status.isEnabled) {
+        await browser.runtime.sendMessage({ action: 'toggleEnabled' });
+      }
+      
       await this.loadStatus();
       await this.renderUserAgentList();
-      this.showToast('Reset to default user agent', 'info');
+      this.showToast('Reset to default and extension disabled', 'info');
     });
 
     // Advanced Options
     this.setupAdvancedOptions();
   }
+
+  setupTabListeners() {
+    document.querySelectorAll('.ua-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        this.setTab(tab.dataset.tab);
+      });
+    });
+  }
+
+  setupDropdownListeners() {
+    // Random source dropdown
+    const randomSourceBtn = document.getElementById('randomSourceBtn');
+    const randomSourceMenu = document.getElementById('randomSourceMenu');
+    
+    randomSourceBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      randomSourceMenu.classList.toggle('show');
+      randomSourceBtn.classList.toggle('open');
+      // Update selected state when opening
+      this.updateDropdownSelection('randomSourceMenu', this.randomSource);
+    });
+    
+    randomSourceMenu.querySelectorAll('.dropdown-item').forEach(item => {
+      item.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        this.randomSource = item.dataset.source;
+        await browser.storage.local.set({ randomSource: this.randomSource });
+        this.updateDropdownSelection('randomSourceMenu', this.randomSource);
+        randomSourceMenu.classList.remove('show');
+        randomSourceBtn.classList.remove('open');
+      });
+    });
+    
+    // Randomize button
+    document.getElementById('randomizeBtn').addEventListener('click', async () => {
+      await this.randomizeFromSource();
+    });
+    
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.remove('show'));
+      document.querySelectorAll('.dropdown-btn').forEach(btn => btn.classList.remove('open'));
+    });
+  }
+
+  updateDropdownSelection(menuId, selectedSource) {
+    const menu = document.getElementById(menuId);
+    menu.querySelectorAll('.dropdown-item').forEach(item => {
+      if (item.dataset.source === selectedSource) {
+        item.classList.add('selected');
+      } else {
+        item.classList.remove('selected');
+      }
+    });
+    
+    // Update button text based on selection
+    if (menuId === 'randomSourceMenu') {
+      this.updateRandomSourceButtonText(selectedSource);
+    }
+  }
+
+  updateRandomSourceButtonText(source) {
+    const btn = document.getElementById('randomSourceBtn');
+    const sourceLabels = {
+      'filtered': 'Filtered',
+      'favorites': 'Favorites',
+      'all': 'All'
+    };
+    const label = sourceLabels[source] || 'Filtered';
+    btn.innerHTML = `${label} <span class="dropdown-arrow">▼</span>`;
+  }
+
 
   setupCheckboxEventListeners() {
     try {
@@ -352,7 +445,11 @@ class PopupUI {
   async loadPreferences() {
     try {
       // Load saved preferences
-      const result = await browser.storage.local.get(['preferredDevice', 'preferredBrowser', 'preferredSource', 'enableInterval', 'intervalMinutes']);
+      const result = await browser.storage.local.get([
+        'preferredDevice', 'preferredBrowser', 'preferredSource', 
+        'enableInterval', 'intervalMinutes',
+        'favoriteUserAgents', 'currentTab', 'randomSource'
+      ]);
       
       // Load device preferences
       if (result.preferredDevice) {
@@ -367,6 +464,21 @@ class PopupUI {
       // Load source preferences
       if (result.preferredSource) {
         this.preferences.source = Array.isArray(result.preferredSource) ? result.preferredSource : [result.preferredSource];
+      }
+      
+      // Load favorites
+      if (result.favoriteUserAgents) {
+        this.favoriteUserAgents = result.favoriteUserAgents;
+      }
+      
+      // Load tab state
+      if (result.currentTab) {
+        this.currentTab = result.currentTab;
+      }
+      
+      // Load Random source
+      if (result.randomSource) {
+        this.randomSource = result.randomSource;
       }
       
       if (result.intervalMinutes) {
@@ -434,8 +546,6 @@ class PopupUI {
         }
       });
 
-      console.log('Processing preferences for:', preferenceType, 'Selected values:', selectedValues, 'Has all:', hasAllOption);
-
       // Determine what the user wants based on the current state
       let finalSelectedValues = [];
       
@@ -446,23 +556,18 @@ class PopupUI {
       if (hasAllOption && selectedValues.length === 1) {
         // User clicked "All" and only "All" is selected - this is what we want
         finalSelectedValues = ['all'];
-        console.log('Only all is selected, keeping it');
       } else if (hasAllOption && selectedValues.length > 1 && !wasAllPreviouslySelected) {
         // User just clicked "All" while having other options - they want "All" now
         finalSelectedValues = ['all'];
-        console.log('User clicked All while having other options, switching to All');
       } else if (hasAllOption && selectedValues.length > 1 && wasAllPreviouslySelected) {
         // User has "All" + other options and "All" was previously selected - they want individual selections
         finalSelectedValues = selectedValues.filter(val => val !== 'all');
-        console.log('All was selected with others, now keeping individual selections:', finalSelectedValues);
       } else if (!hasAllOption && selectedValues.length > 0) {
         // User has only individual options selected
         finalSelectedValues = selectedValues;
-        console.log('Individual options selected:', finalSelectedValues);
       } else {
         // Nothing selected - default to "All"
         finalSelectedValues = ['all'];
-        console.log('No options selected, defaulting to all');
       }
 
       // Update preferences
@@ -506,12 +611,6 @@ class PopupUI {
 
   async updateAllUIComponents() {
     try {
-      // Only log in development mode
-      if (this.isDevelopmentMode()) {
-        console.log('Updating all UI components...');
-        console.log('Current preferences:', this.preferences);
-      }
-      
       // Update the user agent list with current preferences
       await this.renderUserAgentList();
       
@@ -520,10 +619,6 @@ class PopupUI {
       
       // Update any other UI elements that depend on preferences
       this.updatePreferenceDependentUI();
-      
-      if (this.isDevelopmentMode()) {
-        console.log('UI components updated successfully');
-      }
     } catch (error) {
       console.error('Error updating UI components:', error);
     }
@@ -531,25 +626,14 @@ class PopupUI {
 
   updateFilterCount() {
     try {
-      if (this.isDevelopmentMode()) {
-        console.log('Updating filter count...');
-      }
-      
       const countContainer = document.getElementById('uaCount');
       if (!countContainer) {
-        if (this.isDevelopmentMode()) {
-          console.log('Count container not found');
-        }
         return;
       }
 
       // Get the current filtered count based on preferences
       const filteredCount = this.getFilteredUserAgentCount();
       const globalCount = this.userAgents.length;
-      
-      if (this.isDevelopmentMode()) {
-        console.log('Filtered count:', filteredCount, 'Global count:', globalCount);
-      }
 
       // Clear and create count elements safely
       countContainer.textContent = '';
@@ -560,10 +644,6 @@ class PopupUI {
       globalSpan.textContent = `Global: ${globalCount} user agents`;
       countContainer.appendChild(filteredSpan);
       countContainer.appendChild(globalSpan);
-      
-      if (this.isDevelopmentMode()) {
-        console.log('Filter count updated successfully');
-      }
     } catch (error) {
       console.error('Error updating filter count:', error);
     }
@@ -575,12 +655,6 @@ class PopupUI {
       const currentHash = this.getPreferencesHash();
       if (this.cachedFilterCount !== null && this.lastPreferencesHash === currentHash) {
         return this.cachedFilterCount;
-      }
-      
-      if (this.isDevelopmentMode()) {
-        console.log('Getting filtered user agent count...');
-        console.log('User agents loaded:', this.userAgents.length);
-        console.log('Preferences:', this.preferences);
       }
       
       // Early return if no user agents loaded
@@ -638,9 +712,6 @@ class PopupUI {
       this.cachedFilterCount = filteredAgents.length;
       this.lastPreferencesHash = currentHash;
       
-      if (this.isDevelopmentMode()) {
-        console.log('Filtered agents count:', filteredAgents.length);
-      }
       return this.cachedFilterCount;
     } catch (error) {
       console.error('Error getting filtered user agent count:', error);
@@ -706,11 +777,6 @@ class PopupUI {
     });
   }
 
-  isDevelopmentMode() {
-    // Check if we're in development mode (you can toggle this)
-    return false; // Set to true for debugging, false for production
-  }
-
   getPreferencesHash() {
     // Create a simple hash of preferences for caching
     return JSON.stringify(this.preferences);
@@ -750,10 +816,23 @@ class PopupUI {
     // Update current user agent textarea
     const currentUATextarea = document.getElementById('currentUATextarea');
     if (status.currentUserAgent) {
+      // Show the selected/spoofed user agent
       currentUATextarea.value = status.currentUserAgent;
     } else {
-      currentUATextarea.value = '';
-      currentUATextarea.placeholder = 'No user agent selected';
+      // Show the browser's real/default user agent when nothing is selected
+      currentUATextarea.value = navigator.userAgent;
+      currentUATextarea.placeholder = 'Browser default user agent';
+    }
+
+    // Update visual state of textarea based on enabled status and UA selection
+    if (status.isEnabled && status.currentUserAgent) {
+      // Extension is ON and UA is selected - show active state
+      currentUATextarea.classList.remove('inactive');
+      currentUATextarea.classList.add('active');
+    } else {
+      // Extension is OFF or no UA selected - show inactive state
+      currentUATextarea.classList.remove('active');
+      currentUATextarea.classList.add('inactive');
     }
 
     // Update mode selection
@@ -765,7 +844,9 @@ class PopupUI {
   async toggleEnabled(enabled) {
     try {
       const response = await browser.runtime.sendMessage({ action: 'toggleEnabled' });
-      this.updateUI({ isEnabled: response.enabled });
+      // Reload full status to ensure UI is properly updated with active/inactive state
+      await this.loadStatus();
+      this.showToast(response.enabled ? 'Extension enabled' : 'Extension disabled', 'info');
     } catch (error) {
       console.error('Failed to toggle enabled:', error);
     }
@@ -893,34 +974,47 @@ class PopupUI {
 
   async renderUserAgentList(currentUserAgent = null) {
     const container = document.getElementById('uaList');
+    const countElement = document.getElementById('uaCount');
     
-    // Get filtered user agents from background script (same logic as smart random)
-    const response = await browser.runtime.sendMessage({
-      action: 'getFilteredUserAgents',
-      device: this.preferences.device,
-      browser: this.preferences.browser,
-      source: this.preferences.source
-    });
+    let agentsToDisplay = [];
     
-    const filteredAgents = response.userAgents || [];
+    if (this.currentTab === 'favorites') {
+      // Show only favorites
+      agentsToDisplay = this.userAgents.filter(ua => this.favoriteUserAgents.includes(ua.ua));
+      countElement.innerHTML = `<span>Favorites: ${agentsToDisplay.length} user agents</span>`;
+    } else if (this.currentTab === 'all') {
+      // Show all user agents
+      agentsToDisplay = this.userAgents;
+      countElement.innerHTML = `<span>All: ${agentsToDisplay.length} user agents</span>`;
+    } else {
+      // Show filtered user agents
+      const response = await browser.runtime.sendMessage({
+        action: 'getFilteredUserAgents',
+        device: this.preferences.device,
+        browser: this.preferences.browser,
+        source: this.preferences.source
+      });
+      agentsToDisplay = response.userAgents || [];
+      countElement.innerHTML = `<span>Filtered: ${agentsToDisplay.length} user agents</span><span class="global-count">Global: ${this.userAgents.length} user agents</span>`;
+    }
 
-    if (filteredAgents.length === 0) {
+    if (agentsToDisplay.length === 0) {
       container.textContent = '';
       const loadingDiv = document.createElement('div');
       loadingDiv.className = 'loading';
-      loadingDiv.textContent = 'No user agents match your preferences';
+      loadingDiv.textContent = this.currentTab === 'favorites' ? 'No favorites yet - star some UAs to add them' : 'No user agents match your preferences';
       container.appendChild(loadingDiv);
       return;
     }
 
     // If currentUserAgent is provided, use it directly, otherwise get from status
     if (currentUserAgent) {
-      this.renderUserAgentItems(container, filteredAgents, currentUserAgent);
+      this.renderUserAgentItems(container, agentsToDisplay, currentUserAgent);
     } else {
       // Get current user agent for highlighting
       const status = await browser.runtime.sendMessage({ action: 'getStatus' });
       const currentUA = status.currentUserAgent;
-      this.renderUserAgentItems(container, filteredAgents, currentUA);
+      this.renderUserAgentItems(container, agentsToDisplay, currentUA);
     }
   }
 
@@ -932,6 +1026,7 @@ class PopupUI {
     filteredAgents.forEach(ua => {
       const isSelected = ua.ua === currentUA;
       const isCustom = this.customUserAgents.some(custom => custom.ua === ua.ua);
+      const isFavorited = this.favoriteUserAgents.includes(ua.ua);
       
       const item = document.createElement('div');
       item.className = 'user-agent-item';
@@ -940,11 +1035,31 @@ class PopupUI {
       }
       item.dataset.ua = ua.ua;
       
+      // Add star icon
+      const star = document.createElement('span');
+      star.className = 'favorite-star';
+      if (isFavorited) {
+        star.classList.add('favorited');
+        star.textContent = '⭐';
+      } else {
+        star.textContent = '☆';
+      }
+      star.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggleFavorite(ua.ua);
+      });
+      
+      const contentWrapper = document.createElement('div');
+      contentWrapper.className = 'user-agent-item-content';
+      
+      contentWrapper.appendChild(star);
+      
       const text = document.createElement('div');
       text.className = 'user-agent-text';
       text.textContent = ua.ua;
       
-      item.appendChild(text);
+      contentWrapper.appendChild(text);
+      item.appendChild(contentWrapper);
       
       if (isCustom) {
         const removeBtn = document.createElement('button');
@@ -965,55 +1080,132 @@ class PopupUI {
           this.removeCustomUserAgent(e.target.dataset.ua);
           return;
         }
+        if (e.target.classList.contains('favorite-star')) {
+          return; // Star has its own listener
+        }
         this.selectUserAgent(item.dataset.ua);
       });
     });
   }
 
+  async toggleFavorite(userAgent) {
+    const index = this.favoriteUserAgents.indexOf(userAgent);
+    if (index > -1) {
+      // Remove from favorites
+      this.favoriteUserAgents.splice(index, 1);
+      this.showToast('Removed from favorites', 'info');
+    } else {
+      // Add to favorites
+      this.favoriteUserAgents.push(userAgent);
+      this.showToast('Added to favorites', 'success');
+    }
+    
+    // Save to storage
+    await browser.storage.local.set({ favoriteUserAgents: this.favoriteUserAgents });
+    
+    // Re-render the list
+    await this.renderUserAgentList();
+  }
+
+  async setTab(tab) {
+    this.currentTab = tab;
+    await browser.storage.local.set({ currentTab: tab });
+    
+    // Update tab UI
+    document.querySelectorAll('.ua-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === tab);
+    });
+    
+    // Re-render the list
+    await this.renderUserAgentList();
+  }
+
   async selectUserAgent(userAgent) {
     try {
+      // Apply the user agent
       await browser.runtime.sendMessage({ 
         action: 'setUserAgent', 
         userAgent: userAgent 
       });
+      
+      // Enable the extension if it's not already enabled
+      const status = await browser.runtime.sendMessage({ action: 'getStatus' });
+      if (!status.isEnabled) {
+        await browser.runtime.sendMessage({ action: 'toggleEnabled' });
+      }
+      
       await this.loadStatus();
       await this.renderUserAgentList();
-      this.showToast('User agent selected and applied', 'success');
+      this.showToast('User agent selected and extension enabled', 'success');
     } catch (error) {
       console.error('Failed to select user agent:', error);
     }
   }
 
-  async smartRandom() {
+  async randomizeFromSource() {
     try {
       // First check if extension is enabled, if not enable it
       const status = await browser.runtime.sendMessage({ action: 'getStatus' });
       if (!status.isEnabled) {
         await browser.runtime.sendMessage({ action: 'toggleEnabled' });
-        this.showToast('Extension enabled', 'info');
       }
 
-      const response = await browser.runtime.sendMessage({ 
-        action: 'getSmartRandomUserAgent', 
-        device: this.preferences.device,
-        browser: this.preferences.browser,
-        source: this.preferences.source
-      });
-      if (response.userAgent) {
-        await browser.runtime.sendMessage({ 
-          action: 'setUserAgent', 
-          userAgent: response.userAgent 
-        });
-        await this.loadStatus();
-        // Pass the selected user agent directly to ensure proper highlighting
-        await this.renderUserAgentList(response.userAgent);
-        this.showToast('Smart random user agent applied', 'success');
+      let userAgent;
+      let targetTab = this.randomSource; // Switch to the source tab
+      
+      if (this.randomSource === 'favorites') {
+        // Random from favorites
+        if (this.favoriteUserAgents.length === 0) {
+          this.showToast('No favorites yet', 'warning');
+          return;
+        }
+        const randomIndex = Math.floor(Math.random() * this.favoriteUserAgents.length);
+        userAgent = this.favoriteUserAgents[randomIndex];
+      } else if (this.randomSource === 'all') {
+        // Random from all UAs
+        if (this.userAgents.length === 0) {
+          this.showToast('No user agents available', 'warning');
+          return;
+        }
+        const randomIndex = Math.floor(Math.random() * this.userAgents.length);
+        userAgent = this.userAgents[randomIndex].ua;
       } else {
-        this.showToast('No matching user agents found', 'warning');
+        // Random from filtered (default)
+        const response = await browser.runtime.sendMessage({ 
+          action: 'getSmartRandomUserAgent', 
+          device: this.preferences.device,
+          browser: this.preferences.browser,
+          source: this.preferences.source
+        });
+        if (!response.userAgent) {
+          this.showToast('No matching user agents found', 'warning');
+          return;
+        }
+        userAgent = response.userAgent;
+        targetTab = 'filtered'; // Stay on filtered tab
       }
+      
+      // Apply the user agent
+      await browser.runtime.sendMessage({ 
+        action: 'setUserAgent', 
+        userAgent: userAgent 
+      });
+      
+      // Switch to the appropriate tab to show context
+      await this.setTab(targetTab);
+      
+      await this.loadStatus();
+      await this.renderUserAgentList(userAgent);
+      
+      const sourceLabels = {
+        'filtered': 'Filtered',
+        'favorites': 'Favorites',
+        'all': 'All'
+      };
+      this.showToast(`Random UA from ${sourceLabels[this.randomSource]} applied`, 'success');
     } catch (error) {
-      console.error('Failed to get smart random user agent:', error);
-      this.showToast('Failed to get smart random user agent', 'warning');
+      console.error('Failed to randomize user agent:', error);
+      this.showToast('Failed to randomize user agent', 'warning');
     }
   }
 

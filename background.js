@@ -1,13 +1,17 @@
 // Background script for User Agent Spoofer
+// UAParser and Agent are loaded via manifest.json background.scripts
 class UserAgentSpoofer {
   constructor() {
     this.userAgents = [];
     this.customUserAgents = [];
     this.isEnabled = false;
     this.currentUserAgent = null;
+    this.currentParsedUA = null; // Store parsed UA for injection
     this.mode = 'all'; // 'all', 'blacklist', 'whitelist'
     this.whitelist = [];
     this.blacklist = [];
+    this.agent = new Agent();
+    this.agent.prefs({ userAgentData: true, parser: {} });
     this.init();
   }
 
@@ -15,6 +19,7 @@ class UserAgentSpoofer {
     await this.loadSettings();
     await this.fetchUserAgents();
     this.setupRequestListener();
+    this.setupResponseListener();
     this.updateBadge();
   }
 
@@ -34,6 +39,16 @@ class UserAgentSpoofer {
     this.mode = result.mode || 'all';
     this.whitelist = result.whitelist || [];
     this.blacklist = result.blacklist || [];
+    
+    // Parse the current user agent on load
+    try {
+      if (this.currentUserAgent) {
+        this.currentParsedUA = this.agent.parse(this.currentUserAgent);
+      }
+    } catch (error) {
+      console.error('[Unga Bunga UA] Error parsing saved user agent:', error);
+      this.currentParsedUA = null;
+    }
   }
 
   async saveSettings() {
@@ -203,7 +218,7 @@ class UserAgentSpoofer {
   setupRequestListener() {
     browser.webRequest.onBeforeSendHeaders.addListener(
       (details) => {
-        if (!this.isEnabled || !this.currentUserAgent) {
+        if (!this.isEnabled || !this.currentUserAgent || !this.currentParsedUA) {
           return {};
         }
 
@@ -212,17 +227,103 @@ class UserAgentSpoofer {
           return {};
         }
 
-        const headers = details.requestHeaders.map(header => {
+        let headers = details.requestHeaders.map(header => {
           if (header.name.toLowerCase() === 'user-agent') {
             return { name: header.name, value: this.currentUserAgent };
           }
           return header;
         });
 
+        // Remove all Client Hints headers first
+        const headersToRemove = [
+          'sec-ch-ua', 'sec-ch-ua-mobile', 'sec-ch-ua-platform',
+          'sec-ch-ua-arch', 'sec-ch-ua-bitness', 'sec-ch-ua-full-version',
+          'sec-ch-ua-full-version-list', 'sec-ch-ua-model', 'sec-ch-ua-platform-version'
+        ];
+        
+        headers = headers.filter(header => 
+          !headersToRemove.includes(header.name.toLowerCase())
+        );
+
+        // Add Client Hints headers for Chrome-based user agents
+        if (this.currentParsedUA.userAgentDataBuilder) {
+          const uaData = this.currentParsedUA.userAgentDataBuilder;
+          let platform = uaData.p?.os?.name || 'Windows';
+          
+          if (platform.toLowerCase().includes('mac')) {
+            platform = 'macOS';
+          } else if (platform.toLowerCase().includes('debian')) {
+            platform = 'Linux';
+          }
+
+          const version = uaData.p?.browser?.major || '107';
+          let name = uaData.p?.browser?.name || 'Google Chrome';
+          if (name === 'Chrome') {
+            name = 'Google Chrome';
+          }
+
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(this.currentUserAgent);
+
+          // Add the essential Client Hints headers
+          headers.push({
+            name: 'sec-ch-ua-platform',
+            value: `"${platform}"`
+          });
+          headers.push({
+            name: 'sec-ch-ua',
+            value: `"Not/A)Brand";v="8", "Chromium";v="${version}", "${name}";v="${version}"`
+          });
+          headers.push({
+            name: 'sec-ch-ua-mobile',
+            value: isMobile ? '?1' : '?0'
+          });
+        }
+
         return { requestHeaders: headers };
       },
       { urls: ['<all_urls>'] },
       ['blocking', 'requestHeaders']
+    );
+  }
+
+  setupResponseListener() {
+    // Inject Server-Timing header for JavaScript-based UA spoofing
+    browser.webRequest.onHeadersReceived.addListener(
+      (details) => {
+        if (!this.isEnabled || !this.currentParsedUA) {
+          return {};
+        }
+
+        // Only inject for main_frame and sub_frame
+        if (details.type !== 'main_frame' && details.type !== 'sub_frame') {
+          return {};
+        }
+
+        // Check if we should apply user agent based on mode and site lists
+        if (!this.shouldApplyUserAgent(details.url)) {
+          return {};
+        }
+
+        try {
+          const headers = details.responseHeaders || [];
+          
+          // Create the UA object for injection
+          const uaObject = Object.assign({}, this.currentParsedUA, { type: 'user' });
+          
+          // Add Server-Timing header with UA data
+          headers.push({
+            name: 'Server-Timing',
+            value: `uasw-json-data;dur=0;desc="${encodeURIComponent(JSON.stringify(uaObject))}"`
+          });
+
+          return { responseHeaders: headers };
+        } catch (error) {
+          console.error('[Unga Bunga UA] Error injecting Server-Timing header:', error);
+          return {};
+        }
+      },
+      { urls: ['<all_urls>'], types: ['main_frame', 'sub_frame'] },
+      ['blocking', 'responseHeaders']
     );
   }
 
@@ -249,6 +350,17 @@ class UserAgentSpoofer {
 
   async setUserAgent(userAgent) {
     this.currentUserAgent = userAgent;
+    // Parse the user agent for injection
+    try {
+      if (userAgent) {
+        this.currentParsedUA = this.agent.parse(userAgent);
+      } else {
+        this.currentParsedUA = null;
+      }
+    } catch (error) {
+      console.error('[Unga Bunga UA] Error parsing user agent:', error);
+      this.currentParsedUA = null;
+    }
     await this.saveSettings();
   }
 
@@ -415,14 +527,16 @@ async function getPreferences() {
     'preferredBrowser',
     'preferredSource',
     'intervalMinutes',
-    'enableInterval'
+    'enableInterval',
+    'randomSource'
   ]);
   return {
     device: prefs.preferredDevice || ['all'],
     browser: prefs.preferredBrowser || ['all'],
     source: prefs.preferredSource || ['all'],
     intervalMinutes: prefs.intervalMinutes || 5,
-    enableInterval: prefs.enableInterval || false
+    enableInterval: prefs.enableInterval || false,
+    randomSource: prefs.randomSource || 'filtered'
   };
 }
 
@@ -446,17 +560,36 @@ async function startAutoRandomTimer() {
 
 async function runSmartRandom() {
   const prefs = await getPreferences();
-  // Use the existing getFilteredUserAgents method
-  const filteredAgents = spoofer.getFilteredUserAgents(prefs.device, prefs.browser, prefs.source);
-  if (filteredAgents.length > 0) {
-    const randomUA = filteredAgents[Math.floor(Math.random() * filteredAgents.length)].ua;
+  let randomUA;
+  
+  if (prefs.randomSource === 'favorites') {
+    // Random from favorites
+    const result = await browser.storage.local.get(['favoriteUserAgents']);
+    const favorites = result.favoriteUserAgents || [];
+    if (favorites.length > 0) {
+      randomUA = favorites[Math.floor(Math.random() * favorites.length)];
+    }
+  } else if (prefs.randomSource === 'all') {
+    // Random from all UAs
+    if (spoofer.userAgents.length > 0) {
+      randomUA = spoofer.userAgents[Math.floor(Math.random() * spoofer.userAgents.length)].ua;
+    }
+  } else {
+    // Random from filtered (default)
+    const filteredAgents = spoofer.getFilteredUserAgents(prefs.device, prefs.browser, prefs.source);
+    if (filteredAgents.length > 0) {
+      randomUA = filteredAgents[Math.floor(Math.random() * filteredAgents.length)].ua;
+    }
+  }
+  
+  if (randomUA) {
     await spoofer.setUserAgent(randomUA);
   }
 }
 
 // Listen for storage changes
 browser.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && ('enableInterval' in changes || 'intervalMinutes' in changes || 'preferredDevice' in changes || 'preferredBrowser' in changes || 'preferredSource' in changes)) {
+  if (area === 'local' && ('enableInterval' in changes || 'intervalMinutes' in changes || 'randomSource' in changes || 'preferredDevice' in changes || 'preferredBrowser' in changes || 'preferredSource' in changes)) {
     getPreferences().then(prefs => {
       if (prefs.enableInterval) {
         startAutoRandomTimer();
@@ -527,5 +660,26 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'refreshUserAgents':
       spoofer.fetchUserAgents().then(() => sendResponse({ success: true }));
       return true;
+
+    // New messages for robust injection
+    case 'tab-spoofing':
+      // Update tab icon/title to indicate spoofing is active
+      if (sender.tab && sender.tab.id) {
+        browser.browserAction.setTitle({
+          tabId: sender.tab.id,
+          title: '[Unga Bunga UA] Active'
+        });
+      }
+      break;
+
+    case 'get-port-string':
+      // Return the current UA configuration for cross-origin frames
+      if (spoofer.currentParsedUA) {
+        const uaObject = Object.assign({}, spoofer.currentParsedUA, { type: 'user' });
+        sendResponse(encodeURIComponent(JSON.stringify(uaObject)));
+      } else {
+        sendResponse('');
+      }
+      break;
   }
 }); 
