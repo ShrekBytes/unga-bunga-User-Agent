@@ -19,6 +19,14 @@
     "<all_urls>"
   ],
   
+  "browser_specific_settings": {
+    "gecko": {
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
+  
   "background": {
     "scripts": ["ua-parser.min.js", "agent.js", "background.js"]
   },
