@@ -208,7 +208,7 @@ Found a bug or have a feature request?
 
 - User agent data from [ShrekBytes/useragents-data](https://github.com/ShrekBytes/useragents-data)
 - Useragents.me
-- Open source community
+- [UserAgent-Switcher](https://github.com/ray-lothian/UserAgent-Switcher) by ray-lothian
 
 
 ## 📄 License

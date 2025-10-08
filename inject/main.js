@@ -1,6 +1,10 @@
 // Main injection script - creates the communication port
 // This runs in the MAIN world (page context)
 
+// Portions of this file are from "UserAgent-Switcher" by ray-lothian,
+// licensed under the Mozilla Public License 2.0 (MPL-2.0).
+// Modifications made under the GNU General Public License v3.0 (GPLv3).
+
 {
   const port = document.createElement('span');
   port.id = 'uas-port';
