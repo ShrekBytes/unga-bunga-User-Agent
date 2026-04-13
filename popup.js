@@ -100,11 +100,8 @@ class PopupUI {
         // Apply the user agent
         await browser.runtime.sendMessage({ action: 'setUserAgent', userAgent: ua });
         
-        // Enable the extension if it's not already enabled
-        const status = await browser.runtime.sendMessage({ action: 'getStatus' });
-        if (!status.isEnabled) {
-          await browser.runtime.sendMessage({ action: 'toggleEnabled' });
-        }
+        // Enable the extension explicitly.
+        await browser.runtime.sendMessage({ action: 'setEnabled', enabled: true });
         
         await this.loadStatus();
         await this.renderUserAgentList();
@@ -117,11 +114,8 @@ class PopupUI {
       // Reset UA to null/default
       await browser.runtime.sendMessage({ action: 'setUserAgent', userAgent: null });
       
-      // Disable the extension
-      const status = await browser.runtime.sendMessage({ action: 'getStatus' });
-      if (status.isEnabled) {
-        await browser.runtime.sendMessage({ action: 'toggleEnabled' });
-      }
+      // Disable the extension explicitly.
+      await browser.runtime.sendMessage({ action: 'setEnabled', enabled: false });
       
       await this.loadStatus();
       await this.renderUserAgentList();
@@ -496,15 +490,6 @@ class PopupUI {
       // Update checkbox states
       this.updateCheckboxStates();
 
-      // Save intervalMinutes on input
-      document.getElementById('intervalMinutes').addEventListener('input', (e) => {
-        let val = parseInt(e.target.value);
-        if (isNaN(val) || val < 1) val = 1;
-        if (val > 60) val = 60;
-        e.target.value = val;
-        browser.storage.local.set({ intervalMinutes: val });
-        // Background script will handle the timer restart
-      });
     } catch (error) {
       console.error('Failed to load preferences:', error);
     }
@@ -848,7 +833,7 @@ class PopupUI {
 
   async toggleEnabled(enabled) {
     try {
-      const response = await browser.runtime.sendMessage({ action: 'toggleEnabled' });
+      const response = await browser.runtime.sendMessage({ action: 'setEnabled', enabled });
       // Reload full status to ensure UI is properly updated with active/inactive state
       await this.loadStatus();
       this.showToast(response.enabled ? 'Extension enabled' : 'Extension disabled', 'info');
@@ -859,12 +844,8 @@ class PopupUI {
 
   async setRandomUserAgent() {
     try {
-      // First check if extension is enabled, if not enable it
-      const status = await browser.runtime.sendMessage({ action: 'getStatus' });
-      if (!status.isEnabled) {
-        await browser.runtime.sendMessage({ action: 'toggleEnabled' });
-        this.showToast('Extension enabled', 'info');
-      }
+      // Ensure extension is enabled before applying random UA.
+      await browser.runtime.sendMessage({ action: 'setEnabled', enabled: true });
 
       const response = await browser.runtime.sendMessage({ 
         action: 'getRandomUserAgent'
@@ -1146,11 +1127,8 @@ class PopupUI {
         userAgent: userAgent 
       });
       
-      // Enable the extension if it's not already enabled
-      const status = await browser.runtime.sendMessage({ action: 'getStatus' });
-      if (!status.isEnabled) {
-        await browser.runtime.sendMessage({ action: 'toggleEnabled' });
-      }
+      // Enable the extension explicitly.
+      await browser.runtime.sendMessage({ action: 'setEnabled', enabled: true });
       
       await this.loadStatus();
       await this.renderUserAgentList();
@@ -1162,11 +1140,8 @@ class PopupUI {
 
   async randomizeFromSource() {
     try {
-      // First check if extension is enabled, if not enable it
-      const status = await browser.runtime.sendMessage({ action: 'getStatus' });
-      if (!status.isEnabled) {
-        await browser.runtime.sendMessage({ action: 'toggleEnabled' });
-      }
+      // Ensure extension is enabled before applying random UA.
+      await browser.runtime.sendMessage({ action: 'setEnabled', enabled: true });
 
       let userAgent;
       let targetTab = this.randomSource; // Switch to the source tab

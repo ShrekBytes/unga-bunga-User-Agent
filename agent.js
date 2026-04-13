@@ -2,6 +2,23 @@
 class Agent {
   #prefs = {}; // userAgentData, parser
 
+  deriveAppVersion(userAgent) {
+    // Keep appVersion structurally consistent with userAgent.
+    const mozillaMatch = userAgent.match(/^Mozilla\/([^\s]+)\s?(.*)$/);
+    if (mozillaMatch) {
+      const [, version, rest] = mozillaMatch;
+      return `${version}${rest ? ` ${rest}` : ''}`.trim();
+    }
+
+    const operaMatch = userAgent.match(/^Opera\/([^\s]+)\s?(.*)$/);
+    if (operaMatch) {
+      const [, version, rest] = operaMatch;
+      return `${version}${rest ? ` ${rest}` : ''}`.trim();
+    }
+
+    return userAgent;
+  }
+
   prefs(prefs) {
     this.#prefs = prefs;
   }
@@ -39,17 +56,12 @@ class Agent {
     
     const o = {};
     o.userAgent = s;
-    o.appVersion = s
-      .replace(/^Mozilla\//, '')
-      .replace(/^Opera\//, '');
+    o.appVersion = this.deriveAppVersion(s);
 
     const isFF = /Firefox/.test(s);
     const isCH = /Chrome/.test(s);
     const isSF = /Safari/.test(s) && isCH === false;
 
-    if (isFF) {
-      o.appVersion = '5.0 ' + o.appVersion.replace('5.0 ', '').split(/[\s;]/)[0] + ')';
-    }
     const p = (new UAParser(s)).getResult();
 
     // platform

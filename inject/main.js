@@ -8,6 +8,7 @@
 {
   const port = document.createElement('span');
   port.id = 'uas-port';
+  self.__uaswPort = port;
   
   // Prepare function to parse and activate UA configuration
   port.prepare = () => {
@@ -34,6 +35,33 @@
       if (timing.name === 'uasw-json-data') {
         port.dataset.str = timing.description;
       }
+    }
+  }
+
+  // about:blank/srcdoc frames often have no response headers.
+  // In those cases, inherit UA data synchronously from an ancestor frame.
+  if (!port.dataset.str && self.top !== self) {
+    try {
+      let p = parent;
+      while (p && p !== self) {
+        const parentPort = p.__uaswPort;
+        if (parentPort) {
+          if (parentPort.dataset.disabled === 'true') {
+            port.dataset.disabled = true;
+          }
+          else if (parentPort.dataset.str) {
+            port.dataset.str = parentPort.dataset.str;
+          }
+          break;
+        }
+        if (p === p.parent) {
+          break;
+        }
+        p = p.parent;
+      }
+    }
+    catch (e) {
+      // Cross-origin frame ancestry can throw; fallback paths handle this.
     }
   }
 

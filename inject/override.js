@@ -117,7 +117,101 @@
     }
   };
 
+  const overrideFrameNavigator = (win, reason) => {
+    try {
+      if (win && win.navigator) {
+        override(win.navigator, reason);
+      }
+    }
+    catch (e) {
+      // Cross-origin frames can throw; ignore and continue.
+    }
+  };
+
+  const installIframeHooks = () => {
+    if (self.top !== self) {
+      return;
+    }
+
+    try {
+      const frameProto = self.HTMLIFrameElement && self.HTMLIFrameElement.prototype;
+      if (!frameProto || frameProto.__uaswContentWindowHooked) {
+        return;
+      }
+
+      Object.defineProperty(frameProto, '__uaswContentWindowHooked', {
+        value: true,
+        configurable: true
+      });
+
+      const contentWindowDesc = Object.getOwnPropertyDescriptor(frameProto, 'contentWindow');
+      if (contentWindowDesc && typeof contentWindowDesc.get === 'function') {
+        Object.defineProperty(frameProto, 'contentWindow', {
+          configurable: contentWindowDesc.configurable !== false,
+          enumerable: contentWindowDesc.enumerable === true,
+          get() {
+            const win = contentWindowDesc.get.call(this);
+            if (port.dataset.disabled !== 'true') {
+              overrideFrameNavigator(win, 'iframe-contentWindow-getter');
+            }
+            return win;
+          }
+        });
+      }
+
+      const hookFrame = frame => {
+        if (!frame || frame.tagName !== 'IFRAME') {
+          return;
+        }
+
+        if (frame.__uaswLoadHooked) {
+          return;
+        }
+        frame.__uaswLoadHooked = true;
+
+        frame.addEventListener('load', () => {
+          if (port.dataset.disabled !== 'true') {
+            overrideFrameNavigator(frame.contentWindow, 'iframe-load');
+          }
+        }, true);
+
+        if (port.dataset.disabled !== 'true') {
+          overrideFrameNavigator(frame.contentWindow, 'iframe-immediate');
+        }
+      };
+
+      const observer = new MutationObserver(mutations => {
+        for (const mutation of mutations) {
+          for (const node of mutation.addedNodes) {
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+              continue;
+            }
+
+            if (node.tagName === 'IFRAME') {
+              hookFrame(node);
+            }
+
+            if (typeof node.querySelectorAll === 'function') {
+              node.querySelectorAll('iframe').forEach(hookFrame);
+            }
+          }
+        }
+      });
+
+      observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+      });
+
+      document.querySelectorAll('iframe').forEach(hookFrame);
+    }
+    catch (e) {
+      console.info('[Unga Bunga UA] Failed to install iframe hooks:', e);
+    }
+  };
+
   const port = document.getElementById('uas-port');
+  installIframeHooks();
   port.addEventListener('override', e => {
     if (e.detail.id === port.dataset.id) {
       override(navigator, e.detail.reason);

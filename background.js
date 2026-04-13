@@ -327,13 +327,30 @@ class UserAgentSpoofer {
     );
   }
 
+  hostMatchesSite(hostname, site) {
+    const host = (hostname || '').toLowerCase();
+    const rule = (site || '').toLowerCase().trim();
+
+    if (!rule) {
+      return false;
+    }
+
+    // Support exact hostname matches and subdomain matches.
+    return host === rule || host.endsWith(`.${rule}`);
+  }
+
   shouldApplyUserAgent(url) {
-    const hostname = new URL(url).hostname;
+    let hostname = '';
+    try {
+      hostname = new URL(url).hostname;
+    } catch (error) {
+      return false;
+    }
     const normalizedHost = hostname.toLowerCase();
     const isLocalHost = normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' || normalizedHost === '::1' || normalizedHost === '[::1]';
 
-    const inWhitelist = this.whitelist.some(site => normalizedHost.includes(site));
-    const inBlacklist = this.blacklist.some(site => normalizedHost.includes(site));
+    const inWhitelist = this.whitelist.some(site => this.hostMatchesSite(normalizedHost, site));
+    const inBlacklist = this.blacklist.some(site => this.hostMatchesSite(normalizedHost, site));
 
     // Local development hosts are excluded by default.
     // To enable spoofing on localhost, add localhost (or 127.0.0.1/::1) to the whitelist.
@@ -358,6 +375,12 @@ class UserAgentSpoofer {
 
   async toggleEnabled() {
     this.isEnabled = !this.isEnabled;
+    await this.saveSettings();
+    return this.isEnabled;
+  }
+
+  async setEnabled(enabled) {
+    this.isEnabled = Boolean(enabled);
     await this.saveSettings();
     return this.isEnabled;
   }
@@ -473,6 +496,7 @@ class UserAgentSpoofer {
   checkDeviceMatch(userAgent, device) {
     switch (device) {
       case 'android': return userAgent.includes('android');
+      case 'iphone': return userAgent.includes('iphone');
       case 'ios': return userAgent.includes('iphone') || userAgent.includes('ipad');
       case 'ipad': return userAgent.includes('ipad');
       case 'linux': return userAgent.includes('linux') && !userAgent.includes('android');
@@ -631,6 +655,10 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
     case 'toggleEnabled':
       spoofer.toggleEnabled().then(enabled => sendResponse({ enabled }));
+      return true;
+
+    case 'setEnabled':
+      spoofer.setEnabled(message.enabled).then(enabled => sendResponse({ enabled }));
       return true;
       
     case 'setUserAgent':
