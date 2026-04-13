@@ -50,13 +50,20 @@
     };
 
     if (port) {
+      // Only touch the port if it looks like the extension-managed element.
+      const isExtensionPort = port.tagName === 'SPAN' && port.id === 'uas-port';
+      if (!isExtensionPort) {
+        console.warn('[Unga Bunga UA] Found non-extension element with id "uas-port"; skipping override path.');
+        return;
+      }
+
       port.dataset.id = id;
       port.remove();
 
       if (self.top === self) {
         if (port.dataset.disabled !== 'true') {
-          browser.runtime.sendMessage({
-            method: 'tab-spoofing',
+            browser.runtime.sendMessage({
+              action: 'tab-spoofing',
             str: port.dataset.str,
             type: port.dataset.type
           });
@@ -132,7 +139,7 @@
         catch (e) {
           console.info('[Unga Bunga UA] user-agent leaked, using async method:', location.href);
           browser.runtime.sendMessage({
-            method: 'get-port-string'
+            action: 'get-port-string'
           }, str => {
             if (str) {
               port.dataset.str = str;

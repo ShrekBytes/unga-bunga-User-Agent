@@ -329,14 +329,28 @@ class UserAgentSpoofer {
 
   shouldApplyUserAgent(url) {
     const hostname = new URL(url).hostname;
+    const normalizedHost = hostname.toLowerCase();
+    const isLocalHost = normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' || normalizedHost === '::1' || normalizedHost === '[::1]';
+
+    const inWhitelist = this.whitelist.some(site => normalizedHost.includes(site));
+    const inBlacklist = this.blacklist.some(site => normalizedHost.includes(site));
+
+    // Local development hosts are excluded by default.
+    // To enable spoofing on localhost, add localhost (or 127.0.0.1/::1) to the whitelist.
+    if (isLocalHost) {
+      if (inBlacklist) {
+        return false;
+      }
+      return inWhitelist;
+    }
     
     switch (this.mode) {
       case 'all':
         return true;
       case 'blacklist':
-        return !this.blacklist.some(site => hostname.includes(site));
+        return !inBlacklist;
       case 'whitelist':
-        return this.whitelist.some(site => hostname.includes(site));
+        return inWhitelist;
       default:
         return true;
     }
@@ -609,7 +623,8 @@ getPreferences().then(prefs => {
 
 // Handle messages from popup and content scripts
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  switch (message.action) {
+  const messageAction = message.action || message.method;
+  switch (messageAction) {
     case 'getStatus':
       sendResponse(spoofer.getStatus());
       break;
