@@ -6,6 +6,10 @@
 // Modifications made under the GNU General Public License v3.0 (GPLv3).
 
 {
+  const canOverride = () => {
+    return !(port.dataset.disabled === 'true' && !port.dataset.str);
+  };
+
   const override = (nav, reason) => {
     // Ensure port data is prepared
     if (port.dataset.ready !== 'true') {
@@ -151,7 +155,7 @@
           enumerable: contentWindowDesc.enumerable === true,
           get() {
             const win = contentWindowDesc.get.call(this);
-            if (port.dataset.disabled !== 'true') {
+            if (canOverride()) {
               overrideFrameNavigator(win, 'iframe-contentWindow-getter');
             }
             return win;
@@ -170,12 +174,12 @@
         frame.__uaswLoadHooked = true;
 
         frame.addEventListener('load', () => {
-          if (port.dataset.disabled !== 'true') {
+          if (canOverride()) {
             overrideFrameNavigator(frame.contentWindow, 'iframe-load');
           }
         }, true);
 
-        if (port.dataset.disabled !== 'true') {
+        if (canOverride()) {
           overrideFrameNavigator(frame.contentWindow, 'iframe-immediate');
         }
       };
@@ -211,10 +215,41 @@
   };
 
   const port = document.getElementById('uas-port');
+  let mainOverrideApplied = false;
+
+  const tryMainOverride = reason => {
+    if (mainOverrideApplied) {
+      return true;
+    }
+    if (canOverride() && port.dataset.str) {
+      override(navigator, reason);
+      mainOverrideApplied = true;
+      return true;
+    }
+    return false;
+  };
+
+  // Try immediately, then watch for late-arriving UA payload.
+  tryMainOverride('bootstrap-immediate');
+  const portObserver = new MutationObserver(() => {
+    if (tryMainOverride('bootstrap-observer')) {
+      portObserver.disconnect();
+    }
+  });
+  portObserver.observe(port, {
+    attributes: true,
+    attributeFilter: ['data-str', 'data-disabled', 'data-ready']
+  });
+  setTimeout(() => {
+    tryMainOverride('bootstrap-timeout');
+    portObserver.disconnect();
+  }, 1500);
+
   installIframeHooks();
   port.addEventListener('override', e => {
     if (e.detail.id === port.dataset.id) {
       override(navigator, e.detail.reason);
+      mainOverrideApplied = true;
     }
     else {
       try {

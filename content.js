@@ -33,17 +33,45 @@
   injectScriptInline('inject/main.js');
   injectScriptInline('inject/override.js');
 
+  // Optional experimental noise hooks; loaded only when user enabled it.
+  browser.storage.local.get('fingerprintNoise').then(stored => {
+    if (stored && stored.fingerprintNoise === true) {
+      injectScriptInline('inject/fingerprint-noise.js');
+    }
+  }).catch(e => {
+    console.info('[Unga Bunga UA] fingerprintNoise pref read failed, default off:', e);
+  });
+
   // Run isolated script code in the content script context (ISOLATED world)
   try {
       /* global cloneInto */
       let port = self.port = document.getElementById('uas-port');
       const id = (Math.random() + 1).toString(36).substring(7);
+      let overrideApplied = false;
 
       const override = reason => {
+        if (overrideApplied) {
+          return;
+        }
+        overrideApplied = true;
         const detail = typeof cloneInto === 'undefined' ? {id, reason} : cloneInto({id, reason}, self);
         port.dispatchEvent(new CustomEvent('override', {
           detail
         }));
+      };
+
+      const requestAsyncOverride = () => {
+        browser.runtime.sendMessage({
+          action: 'get-port-string'
+        }, str => {
+          if (str && !port.dataset.str) {
+            port.dataset.str = str;
+          }
+          if (port.dataset.str) {
+            console.info('[Unga Bunga UA] user-agent leaked, using async method:', location.href);
+            override('async');
+          }
+        });
       };
 
       if (port) {
@@ -65,6 +93,11 @@
               type: port.dataset.type
             });
           }
+        }
+
+        // Start async fallback immediately when server-timing data is missing.
+        if (!port.dataset.str) {
+          requestAsyncOverride();
         }
       }
       else { // iframe[sandbox]
@@ -134,15 +167,7 @@
             }
           }
           catch (e) {
-            console.info('[Unga Bunga UA] user-agent leaked, using async method:', location.href);
-            browser.runtime.sendMessage({
-              action: 'get-port-string'
-            }, str => {
-              if (str) {
-                port.dataset.str = str;
-                override('async');
-              }
-            });
+            requestAsyncOverride();
           }
         }
       }

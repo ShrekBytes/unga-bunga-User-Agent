@@ -22,6 +22,33 @@ class Agent {
   prefs(prefs) {
     this.#prefs = prefs;
   }
+
+  linuxNavigatorPlatform(uaString, parsed) {
+    const fromUa = uaString.match(/\((?:[^)]*;\s*)?Linux\s+([^;)]+)\)/i);
+    if (fromUa) {
+      const tail = fromUa[1].trim();
+      if (tail) {
+        return tail.toLowerCase().startsWith('linux ') ? tail : `Linux ${tail}`;
+      }
+    }
+
+    const arch = (parsed.cpu && parsed.cpu.architecture) || '';
+    const map = {
+      amd64: 'x86_64',
+      x64: 'x86_64',
+      ia32: 'i686',
+      i686: 'i686',
+      arm: 'armv7l',
+      armhf: 'armv7l',
+      aarch64: 'aarch64',
+      arm64: 'aarch64'
+    };
+    const normalized = map[String(arch).toLowerCase()] || arch;
+    if (normalized) {
+      return `Linux ${normalized}`;
+    }
+    return 'Linux x86_64';
+  }
   
   parse(s = '') {
     if (this.#prefs.parser && this.#prefs.parser[s]) {
@@ -72,7 +99,7 @@ class Agent {
       o.platform = 'Win32';
     }
     else if (p.os.name === 'Linux') {
-      o.platform = o.oscpu;
+      o.platform = this.linuxNavigatorPlatform(s, p);
     }
     else if (p.os.name === 'Android') {
       if (p.cpu.architecture) {
@@ -86,8 +113,14 @@ class Agent {
       o.platform = p.device.model;
     }
     // backup plan
-    o.platform = o.platform ||
-      (p.cpu.architecture ? ('Linux ' + p.cpu.architecture) : (p.os.name || ''));
+    if (!o.platform) {
+      if (p.os.name === 'Linux') {
+        o.platform = this.linuxNavigatorPlatform(s, p);
+      }
+      else {
+        o.platform = (p.cpu.architecture ? ('Linux ' + p.cpu.architecture) : (p.os.name || ''));
+      }
+    }
 
     o.vendor = p.device.vendor || '';
     if (isSF) {

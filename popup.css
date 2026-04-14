@@ -666,6 +666,13 @@ input:checked + .slider:before {
   border-color: #3a3a3a;
 }
 
+.fingerprint-hint {
+  margin: 8px 0 0 46px;
+  font-size: 12px;
+  color: #888;
+  line-height: 1.35;
+}
+
 .interval-header {
   display: flex;
   align-items: center;

@@ -39,17 +39,20 @@ class PopupUI {
     this.setupTabListeners();
     this.setupDropdownListeners();
     await this.loadPreferences();
-    await this.loadStatus();
-    await this.loadUserAgents();
-    
-    // Single, efficient initialization with DOM ready check
-    this.waitForDOMReady().then(async () => {
-      this.setupCheckboxEventListeners();
-      await this.updateAllUIComponents();
-      // Set initial tab
-      this.setTab(this.currentTab);
-      // Initialize dropdown button labels
-      this.updateRandomSourceButtonText(this.randomSource);
+
+    // Fetch status once and hydrate all popup state from a single payload.
+    const status = await browser.runtime.sendMessage({ action: 'getStatus' });
+    this.applyStatus(status, { includeLists: true });
+
+    this.setupCheckboxEventListeners();
+    this.updateTabButtons(this.currentTab);
+    this.updateRandomSourceButtonText(this.randomSource);
+    this.renderCustomUserAgentList();
+    this.updateFilterCount();
+
+    // Defer the heavy list render to the next frame so popup appears faster.
+    requestAnimationFrame(() => {
+      this.renderUserAgentList(status.currentUserAgent || null);
     });
   }
 
@@ -80,6 +83,11 @@ class PopupUI {
       e.target.value = val;
       browser.storage.local.set({ intervalMinutes: val });
       // Background script will handle the timer restart
+    });
+
+    document.getElementById('fingerprintNoise').addEventListener('change', (e) => {
+      browser.storage.local.set({ fingerprintNoise: e.target.checked });
+      this.showToast('Reload open tabs for canvas/audio noise to apply.', 'info');
     });
 
     // Custom user agent input
@@ -447,7 +455,8 @@ class PopupUI {
       const result = await browser.storage.local.get([
         'preferredDevice', 'preferredBrowser', 'preferredSource', 
         'enableInterval', 'intervalMinutes',
-        'favoriteUserAgents', 'currentTab', 'randomSource'
+        'favoriteUserAgents', 'currentTab', 'randomSource',
+        'fingerprintNoise'
       ]);
       
       // Load device preferences
@@ -486,6 +495,8 @@ class PopupUI {
       if (result.enableInterval) {
         document.getElementById('enableInterval').checked = true;
       }
+
+      document.getElementById('fingerprintNoise').checked = result.fingerprintNoise === true;
 
       // Update checkbox states
       this.updateCheckboxStates();
@@ -775,13 +786,7 @@ class PopupUI {
   async loadStatus() {
     try {
       const status = await browser.runtime.sendMessage({ action: 'getStatus' });
-      this.updateUI(status);
-      this.mode = status.mode || 'all';
-      this.whitelist = status.whitelist || [];
-      this.blacklist = status.blacklist || [];
-      this.updateSiteListVisibility();
-      this.updateSiteListTitle();
-      this.renderSiteList();
+      this.applyStatus(status);
     } catch (error) {
       console.error('Failed to load status:', error);
     }
@@ -790,13 +795,33 @@ class PopupUI {
   async loadUserAgents() {
     try {
       const status = await browser.runtime.sendMessage({ action: 'getStatus' });
-      this.userAgents = status.userAgents || [];
-      this.customUserAgents = status.customUserAgents || [];
+      this.applyStatus(status, { includeLists: true });
       await this.renderUserAgentList();
       this.renderCustomUserAgentList();
     } catch (error) {
       console.error('Failed to load user agents:', error);
     }
+  }
+
+  applyStatus(status, { includeLists = false } = {}) {
+    this.updateUI(status);
+    this.mode = status.mode || 'all';
+    this.whitelist = status.whitelist || [];
+    this.blacklist = status.blacklist || [];
+    this.updateSiteListVisibility();
+    this.updateSiteListTitle();
+    this.renderSiteList();
+
+    if (includeLists) {
+      this.userAgents = status.userAgents || [];
+      this.customUserAgents = status.customUserAgents || [];
+    }
+  }
+
+  updateTabButtons(tab) {
+    document.querySelectorAll('.ua-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === tab);
+    });
   }
 
   updateUI(status) {
@@ -1111,9 +1136,7 @@ class PopupUI {
     await browser.storage.local.set({ currentTab: tab });
     
     // Update tab UI
-    document.querySelectorAll('.ua-tab').forEach(t => {
-      t.classList.toggle('active', t.dataset.tab === tab);
-    });
+    this.updateTabButtons(tab);
     
     // Re-render the list
     await this.renderUserAgentList();

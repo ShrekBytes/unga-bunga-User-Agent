@@ -17,10 +17,16 @@ class UserAgentSpoofer {
 
   async init() {
     await this.loadSettings();
-    await this.fetchUserAgents();
+
+    // Register listeners first so early navigations are covered even if
+    // remote user-agent list fetching is still in progress.
     this.setupRequestListener();
     this.setupResponseListener();
     this.updateBadge();
+
+    this.fetchUserAgents().catch(error => {
+      console.error('[Unga Bunga UA] Failed to refresh UA list during init:', error);
+    });
   }
 
   async loadSettings() {
@@ -215,9 +221,22 @@ class UserAgentSpoofer {
     }
   }
 
+  ensureParsedUA() {
+    if (this.currentParsedUA || !this.currentUserAgent) {
+      return;
+    }
+    try {
+      this.currentParsedUA = this.agent.parse(this.currentUserAgent);
+    } catch (error) {
+      console.error('[Unga Bunga UA] Lazy parse failed:', error);
+      this.currentParsedUA = null;
+    }
+  }
+
   setupRequestListener() {
     browser.webRequest.onBeforeSendHeaders.addListener(
       (details) => {
+        this.ensureParsedUA();
         if (!this.isEnabled || !this.currentUserAgent || !this.currentParsedUA) {
           return {};
         }
@@ -290,6 +309,7 @@ class UserAgentSpoofer {
     // Inject Server-Timing header for JavaScript-based UA spoofing
     browser.webRequest.onHeadersReceived.addListener(
       (details) => {
+        this.ensureParsedUA();
         if (!this.isEnabled || !this.currentParsedUA) {
           return {};
         }
@@ -707,7 +727,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // New messages for robust injection
     case 'tab-spoofing':
       // Update tab icon/title to indicate spoofing is active
-      if (sender.tab && sender.tab.id) {
+      if (spoofer.isEnabled && sender.tab && sender.tab.id) {
         browser.browserAction.setTitle({
           tabId: sender.tab.id,
           title: '[Unga Bunga UA] Active'
@@ -716,8 +736,9 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
 
     case 'get-port-string':
-      // Return the current UA configuration for cross-origin frames
-      if (spoofer.currentParsedUA) {
+      // Return UA config only when spoofing is enabled and should apply.
+      const senderUrl = (sender && sender.url) || (sender.tab && sender.tab.url) || '';
+      if (spoofer.isEnabled && spoofer.currentParsedUA && senderUrl && spoofer.shouldApplyUserAgent(senderUrl)) {
         const uaObject = Object.assign({}, spoofer.currentParsedUA, { type: 'user' });
         sendResponse(encodeURIComponent(JSON.stringify(uaObject)));
       } else {
