@@ -16,7 +16,9 @@ jobs:
     outputs:
       version_changed: ${{ steps.version_check.outputs.version_changed }}
       version: ${{ steps.version_check.outputs.version }}
+      prev_version: ${{ steps.version_check.outputs.prev_version }}
       tag: ${{ steps.version_check.outputs.tag }}
+      changelog_range: ${{ steps.version_check.outputs.changelog_range }}
       xpi_path: ${{ steps.version_check.outputs.xpi_path }}
 
     steps:
@@ -49,7 +51,13 @@ jobs:
           fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prev_version=$PREV_VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ -n "$PREV_VERSION" ]]; then
+            echo "changelog_range=v$PREV_VERSION...v$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "changelog_range=Initial release...v$VERSION" >> "$GITHUB_OUTPUT"
+          fi
           echo "xpi_path=dist/unga_bunga_user_agent-$VERSION.xpi" >> "$GITHUB_OUTPUT"
           echo "version_changed=$VERSION_CHANGED" >> "$GITHUB_OUTPUT"
 
@@ -98,8 +106,11 @@ jobs:
           allowUpdates: true
           draft: false
           body: |
-            Automated release for version ${{ steps.version_check.outputs.version }}.
-            Source archives are provided by GitHub automatically.
+            Changelog
+
+            - update notes here
+
+            Full Changelog: ${{ steps.version_check.outputs.changelog_range }}
 
   upload-signed-to-latest-release:
     runs-on: ubuntu-latest
@@ -124,7 +135,7 @@ jobs:
           elif [[ "$BEFORE_SHA" == "$ZERO_SHA" || -z "$BEFORE_SHA" ]]; then
             CHANGED=$(git ls-files "dist/*.xpi")
           else
-            CHANGED=$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" -- "dist/*.xpi")
+            CHANGED=$(git diff --name-status "$BEFORE_SHA" "$AFTER_SHA" -- "dist/*.xpi" | awk '$1 ~ /^(A|M|R|C)/ {print $NF}')
           fi
 
           SIGNED=$(echo "$CHANGED" | grep -Ei 'dist/.*firefox.*\.xpi$' || true)
