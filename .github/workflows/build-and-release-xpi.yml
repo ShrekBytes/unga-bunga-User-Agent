@@ -80,7 +80,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ steps.version_check.outputs.tag }}
-          name: Unga Bunga User-Agent v${{ steps.version_check.outputs.version }}
+          name: Release v${{ steps.version_check.outputs.version }}
           artifacts: ${{ steps.version_check.outputs.xpi_path }}
           artifactContentType: application/x-xpinstall
           allowUpdates: true
