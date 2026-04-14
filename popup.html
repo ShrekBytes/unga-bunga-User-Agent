@@ -169,16 +169,6 @@
           </div>
         </div>
       </div>
-      <div class="interval-section">
-        <div class="interval-header">
-          <label class="interval-toggle">
-            <input type="checkbox" id="fingerprintNoise">
-            <span class="toggle-slider"></span>
-          </label>
-          <span class="interval-title">Canvas / Audio / WebGL noise (experimental)</span>
-        </div>
-        <p class="fingerprint-hint">Reload open tabs after changing this.</p>
-      </div>
     </div>
 
     <hr class="divider"/>
@@ -202,6 +192,28 @@
         <button id="advancedToggle" class="btn btn-secondary btn-small">Show</button>
       </div>
       <div class="advanced-options" id="advancedOptions" style="display: none;">
+        <div class="interval-section">
+          <div class="interval-header">
+            <label class="interval-toggle">
+              <input type="checkbox" id="strictParity">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="interval-title">Strict parity mode</span>
+          </div>
+          <p class="fingerprint-hint">When enabled, UAData is only exposed where native support exists.</p>
+        </div>
+
+        <div class="interval-section">
+          <div class="interval-header">
+            <label class="interval-toggle">
+              <input type="checkbox" id="fingerprintNoise">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="interval-title">Canvas / Audio / WebGL noise (experimental)</span>
+          </div>
+          <p class="fingerprint-hint">Reload open tabs after changing this.</p>
+        </div>
+
         <div class="mode-selector">
           <h3>Mode</h3>
           <div class="radio-group">

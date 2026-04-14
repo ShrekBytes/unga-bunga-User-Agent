@@ -1,5 +1,15 @@
 # Unga Bunga User-Agent
 
+## v4.2.0
+
+### Parity improvements
+
+- Added strict parity mode (default on) to avoid exposing spoofed `navigator.userAgentData` in engines where it is not natively available.
+
+### Notes
+
+- Service worker and full anti-fingerprinting coverage remain out of scope for WebExtension-level spoofing.
+
 ## v4.1.0
 
 ### Fingerprint noise (optional, experimental)
@@ -29,7 +39,7 @@
 
 - Complete rewrite with advanced multi-layer injection mechanism
 - Client Hints API spoofing for Chromium-based user agents
-- Foolproof detection resistance across all contexts
+- Improved spoofing consistency across common browsing contexts
 
 ### ⭐ Favorites System
 

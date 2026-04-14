@@ -17,8 +17,18 @@
     }
 
     try {
+      const hasNativeUAData = (() => {
+        try {
+          return Object.prototype.toString.call(nav.userAgentData) === '[object NavigatorUAData]';
+        }
+        catch (e) {
+          return false;
+        }
+      })();
+      const strictParity = port.prefs.strictParity !== false;
+
       // Handle navigator.userAgentData for Chromium-based browsers
-      if (port.prefs.userAgentDataBuilder) {
+      if (port.prefs.userAgentDataBuilder && (!strictParity || hasNativeUAData)) {
         const v = new class NavigatorUAData {
           #p;
 
@@ -55,6 +65,9 @@
                 this.platform = p.os.name;
               }
             }
+          }
+          get [Symbol.toStringTag]() {
+            return 'NavigatorUAData';
           }
           toJSON() {
             return {
@@ -96,11 +109,15 @@
           return v;
         });
       }
+      else if (strictParity) {
+        // In strict mode, do not expose userAgentData where it does not exist natively.
+        port.prefs.userAgentData = '[delete]';
+      }
       delete port.prefs.userAgentDataBuilder;
 
       // Override all navigator properties
       for (const key of Object.keys(port.prefs)) {
-        if (key === 'type') {
+        if (key === 'type' || key === 'strictParity') {
           continue;
         }
         if (port.prefs[key] === '[delete]') {

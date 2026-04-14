@@ -90,6 +90,25 @@ class PopupUI {
       this.showToast('Reload open tabs for canvas/audio noise to apply.', 'info');
     });
 
+    document.getElementById('strictParity').addEventListener('change', async (e) => {
+      try {
+        const response = await browser.runtime.sendMessage({
+          action: 'setStrictParity',
+          enabled: e.target.checked
+        });
+        const enabled = response && typeof response.strictParity === 'boolean'
+          ? response.strictParity
+          : e.target.checked;
+        e.target.checked = enabled;
+        this.showToast(enabled ? 'Strict parity enabled' : 'Strict parity disabled', 'info');
+      }
+      catch (error) {
+        console.error('Failed to update strict parity:', error);
+        e.target.checked = !e.target.checked;
+        this.showToast('Failed to update strict parity', 'warning');
+      }
+    });
+
     // Custom user agent input
     document.getElementById('addCustomBtn').addEventListener('click', () => {
       this.addCustomUserAgent();
@@ -827,6 +846,7 @@ class PopupUI {
   updateUI(status) {
     // Update toggle
     document.getElementById('enabled').checked = status.isEnabled;
+    document.getElementById('strictParity').checked = status.strictParity !== false;
 
     // Update current user agent textarea
     const currentUATextarea = document.getElementById('currentUATextarea');

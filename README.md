@@ -35,6 +35,13 @@ A Firefox extension for user agent spoofing with always up-to-date user agents a
 - **Smart Random**: Intelligent user agent selection based on preferences
 - **Auto-Random**: Automatic user agent rotation at set intervals from the selected preferences
 
+### ⚠️ Scope & Limitations
+
+- This extension aims to provide consistent user-agent spoofing across common page contexts.
+- It does **not** claim full anti-fingerprinting or undetectability.
+- Some browser/engine/OS traits and advanced fingerprinting vectors cannot be fully controlled via WebExtension APIs.
+- By default, strict parity avoids exposing `navigator.userAgentData` on engines that do not natively provide it.
+
 ### 🎨 Modern Interface
 
 - **Clean, Minimal Design**: Modern dark theme with intuitive controls

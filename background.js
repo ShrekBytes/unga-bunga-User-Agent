@@ -10,6 +10,7 @@ class UserAgentSpoofer {
     this.mode = 'all'; // 'all', 'blacklist', 'whitelist'
     this.whitelist = [];
     this.blacklist = [];
+    this.strictParity = true;
     this.agent = new Agent();
     this.agent.prefs({ userAgentData: true, parser: {} });
     this.init();
@@ -36,7 +37,8 @@ class UserAgentSpoofer {
       'customUserAgents',
       'mode',
       'whitelist',
-      'blacklist'
+      'blacklist',
+      'strictParity'
     ]);
     
     this.isEnabled = result.isEnabled || false;
@@ -45,6 +47,7 @@ class UserAgentSpoofer {
     this.mode = result.mode || 'all';
     this.whitelist = result.whitelist || [];
     this.blacklist = result.blacklist || [];
+    this.strictParity = result.strictParity !== false;
     
     // Parse the current user agent on load
     try {
@@ -64,7 +67,8 @@ class UserAgentSpoofer {
       customUserAgents: this.customUserAgents,
       mode: this.mode,
       whitelist: this.whitelist,
-      blacklist: this.blacklist
+      blacklist: this.blacklist,
+      strictParity: this.strictParity
     });
     this.updateBadge();
   }
@@ -328,7 +332,10 @@ class UserAgentSpoofer {
           const headers = details.responseHeaders || [];
           
           // Create the UA object for injection
-          const uaObject = Object.assign({}, this.currentParsedUA, { type: 'user' });
+          const uaObject = Object.assign({}, this.currentParsedUA, {
+            type: 'user',
+            strictParity: this.strictParity
+          });
           
           // Add Server-Timing header with UA data
           headers.push({
@@ -569,8 +576,15 @@ class UserAgentSpoofer {
       customUserAgents: this.customUserAgents,
       mode: this.mode,
       whitelist: this.whitelist,
-      blacklist: this.blacklist
+      blacklist: this.blacklist,
+      strictParity: this.strictParity
     };
+  }
+
+  async setStrictParity(enabled) {
+    this.strictParity = Boolean(enabled);
+    await this.saveSettings();
+    return this.strictParity;
   }
 }
 
@@ -739,11 +753,18 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Return UA config only when spoofing is enabled and should apply.
       const senderUrl = (sender && sender.url) || (sender.tab && sender.tab.url) || '';
       if (spoofer.isEnabled && spoofer.currentParsedUA && senderUrl && spoofer.shouldApplyUserAgent(senderUrl)) {
-        const uaObject = Object.assign({}, spoofer.currentParsedUA, { type: 'user' });
+        const uaObject = Object.assign({}, spoofer.currentParsedUA, {
+          type: 'user',
+          strictParity: spoofer.strictParity
+        });
         sendResponse(encodeURIComponent(JSON.stringify(uaObject)));
       } else {
         sendResponse('');
       }
       break;
+
+    case 'setStrictParity':
+      spoofer.setStrictParity(message.enabled).then(strictParity => sendResponse({ strictParity }));
+      return true;
   }
 }); 
