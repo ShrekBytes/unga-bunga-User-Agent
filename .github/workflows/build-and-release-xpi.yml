@@ -94,7 +94,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add dist
-          git commit -m "build: add unsigned xpi for v${{ steps.version_check.outputs.version }}"
+          git commit -m "build: add unsigned xpi for ${{ steps.version_check.outputs.version }}"
           git push
 
       - name: Create or update release (published)
@@ -102,7 +102,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ steps.version_check.outputs.tag }}
-          name: Release v${{ steps.version_check.outputs.version }}
+          name: release ${{ steps.version_check.outputs.version }}
           allowUpdates: true
           draft: false
           body: |
