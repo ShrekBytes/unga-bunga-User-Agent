@@ -35,22 +35,46 @@ const UA_FILES = UA_CATEGORIES.flatMap(category => UA_SOURCES.map(src => ({
   optional: src.optional
 })));
 
-// Upstream publishes a few hundred strings and orders them by measured
-// frequency, which deliberately puts old, high-traffic versions first. The list
-// is short so that the current ones are the ones that survive the cut.
-const UA_LIST_LIMIT = 200;
+// A ceiling on how many entries the list may hold, not a way to keep it
+// current. Upstream publishes 242 distinct strings today, so this is set above
+// the whole dataset: nothing should be dropped merely for being the 333rd
+// entry. Which strings belong in the list at all is decided by MIN_CURRENCY
+// below, and how the ceiling is shared out is decided by the round robin. That
+// leaves 210 entries at the time of writing, so the cap is not binding and is
+// here to catch the dataset growing rather than to trim it.
+const UA_LIST_LIMIT = 333;
+
+// A version this far behind the newest one seen for its own browser family is
+// not a current browser. This used to be implicit: the cap sat below the
+// published pool, so the cap cut the stale tail as a side effect of wanting to
+// be short. That stopped being true once the cap was raised past the pool size,
+// so it is stated as a rule instead of relied on as an accident. Half the
+// current version is where the published data breaks: every string it drops
+// scores below 0.5, every string it keeps scores at or above.
+const MIN_CURRENCY = 0.5;
 
 // Browser versions are only comparable inside a family: Safari 26 is current
 // iOS, not a browser from 1998. Ranked as one number, a current iPhone string
 // sorts below Chrome 30 and gets cut, so each string is ranked against the
 // newest version seen for its own family instead. Ordered most specific first,
 // so an Edge string is not read as the Chrome it also names.
+//
+// Every browser on iOS must be here. iOS forbids third-party engines, so Chrome
+// and Firefox on an iPhone ship as CriOS and FxiOS and never carry a `Chrome/`
+// or `Firefox/` token at all. Without these two, every current Chrome-on-iOS
+// string is unrankable, scores zero and falls below the floor, which is what
+// had emptied the iPhone and iPad filters: 22 current strings dropped to leave
+// 20 iPhone and 9 iPad against 44 Windows. They are ranked against the same
+// `chrome` and `firefox` families as their desktop equivalents, since they are
+// the same browsers at the same versions.
 const BROWSER_TOKENS = [
   [/Firefox\/(\d+)/, 'firefox'],
+  [/FxiOS\/(\d+)/, 'firefox'],
   [/Edg(?:e|A|iOS)?\/(\d+)/, 'edge'],
   [/OPR\/(\d+)/, 'opera'],
   [/Vivaldi\/(\d+)/, 'vivaldi'],
   [/Silk\/(\d+)/, 'silk'],
+  [/CriOS\/(\d+)/, 'chrome'],
   [/Chrome\/(\d+)/, 'chrome'],
   [/Version\/(\d+)/, 'safari']
 ];
@@ -203,9 +227,10 @@ class UserAgentSpoofer {
         return { family, major: parseInt(match[1], 10) };
       }
     }
-    // No browser token at all: a bare WebKit string or an in-app webview. These
-    // are the worst thing to hand someone as a spoofed browser, so they rank
-    // last and are the first cut.
+    // No browser token at all: a bare WebKit string, an in-app webview, or a
+    // third-party app's embedded browser such as GSA or Flipboard. These are
+    // the worst thing to hand someone as a spoofed browser, so they score zero
+    // and fall below the floor.
     return null;
   }
 
@@ -232,11 +257,14 @@ class UserAgentSpoofer {
     const categories = UA_CATEGORIES.map(name => ({ name, entries: byCategory.get(name), quota: 0 }));
 
     // Rank each string against the newest version seen for its own browser
-    // family, and cut from the bottom. This is the part that actually delivers
-    // "prioritise the latest": list position alone is not enough, because
-    // selection is a uniform random pick, so a stale string anywhere in the
-    // list is just as likely to be handed out as a current one. Sorting is
-    // stable, so equal scores keep upstream's own order as the tiebreak.
+    // family, and drop the ones that fall too far behind it. This is the part
+    // that actually delivers "prioritise the latest": list position alone is
+    // not enough, because selection is a uniform random pick, so a stale string
+    // anywhere in the list is just as likely to be handed out as a current one.
+    // Sorting is stable, so equal scores keep upstream's own order as the
+    // tiebreak. `newest` is built from every entry, not just the ones that
+    // clear the floor, so the reference is always the newest thing published
+    // rather than the newest thing that happened to survive.
     const newest = new Map();
     for (const { entries } of categories) {
       for (const entry of entries.values()) {
@@ -254,7 +282,9 @@ class UserAgentSpoofer {
       return version.major / (newest.get(version.family) || version.major);
     };
     for (const category of categories) {
-      category.ordered = Array.from(category.entries.values()).sort((a, b) => currency(b) - currency(a));
+      category.ordered = Array.from(category.entries.values())
+        .filter(entry => currency(entry) >= MIN_CURRENCY)
+        .sort((a, b) => currency(b) - currency(a));
     }
 
     // Share the cap between categories instead of letting it be filled by
@@ -264,8 +294,13 @@ class UserAgentSpoofer {
     // round robin, balances the list without needing a table of per-category
     // numbers: each category gets an equal share, and whatever a short category
     // cannot use passes to the others rather than being lost.
+    //
+    // Tablet cannot use a full share: upstream only publishes 36 tablet strings
+    // and no synthetic tablet file, so it is supply-limited rather than
+    // starved by the budget. Its unused share goes to desktop and mobile, which
+    // is why the finished list is not exactly a third each.
     let budget = UA_LIST_LIMIT;
-    let open = categories.filter(category => category.entries.size > 0);
+    let open = categories.filter(category => category.ordered.length > 0);
     while (budget > 0 && open.length) {
       for (const category of open) {
         if (budget === 0) break;

@@ -8,11 +8,20 @@
   the whole list silently fell back to eight built-in strings. Every user agent
   now comes from the replacement files.
 - Strings are ranked by how current their browser version is, against the newest
-  version seen for their own browser family. Previously the list was ordered but
-  selection is a uniform random pick, so ordering alone did nothing and a
-  Chrome/Windows user could still be handed Chrome 21.
-- The list is capped at 200 entries, shared out between desktop, mobile and
-  tablet so no single device takes the whole budget.
+  version seen for their own browser family, and anything more than half a
+  version behind is dropped. Previously the list was ordered but selection is a
+  uniform random pick, so ordering alone did nothing and a Chrome/Windows user
+  could still be handed Chrome 21.
+- Chrome and Firefox on iOS are now ranked. iOS forbids third-party engines, so
+  they ship as `CriOS` and `FxiOS` and never carry a `Chrome/` or `Firefox/`
+  token. Without those tokens every current Chrome-on-iOS string scored zero
+  and was treated as unrankable, which had emptied the iPhone and iPad filters.
+- The list holds up to 333 entries, shared out between desktop, mobile and
+  tablet so no single device takes the whole budget. The cap sits above the
+  dataset's 242 distinct strings, so it is headroom rather than a cut, and
+  freshness is decided by the ranking rule above rather than by the cap binding.
+  In practice that leaves 210 entries: android 56, windows 44, iphone 35,
+  mac 33, linux 26, ipad 15.
 - A string published in more than one file is listed once and matches both source
   filters, so **Most Common** still returns results.
 - Synthetic user agents, which upstream builds from currently-shipping versions,
@@ -21,6 +30,10 @@
 
 ### Reliability
 
+- Strings that are not browsers at all are no longer offered: bare WebKit
+  webviews, and in-app browsers such as Google Search (`GSA`) and Flipboard.
+  Upstream publishes seven near-identical `GSA` strings for iOS, which crowded
+  out real iOS browsers.
 - A dataset that 404s, returns a non-JSON body, or changes the field the User
   Agent is read from now fails visibly and falls back, instead of quietly
   serving a stale or empty list.
