@@ -1,0 +1,33 @@
+name: Tests
+
+# Runs on every change and every pull request, and is also called as a reusable
+# workflow by build-and-release-xpi.yml, which gates its release on this suite.
+# One definition, so the Node version and test command cannot drift apart.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # No install step on purpose. The extension has no runtime or build
+      # dependencies, and node:test ships with Node, so there is nothing to
+      # install and no lockfile to keep in step.
+      - name: Run tests
+        run: npm test

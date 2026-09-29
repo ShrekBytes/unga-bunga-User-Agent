@@ -1,5 +1,34 @@
 # Unga Bunga User-Agent
 
+## v4.6.0
+
+### Current user agents (fixes #6)
+
+- The upstream dataset retired the `latest/` files this extension was reading, so
+  the whole list silently fell back to eight built-in strings. Every user agent
+  now comes from the replacement files.
+- Strings are ranked by how current their browser version is, against the newest
+  version seen for their own browser family. Previously the list was ordered but
+  selection is a uniform random pick, so ordering alone did nothing and a
+  Chrome/Windows user could still be handed Chrome 21.
+- The list is capped at 200 entries, shared out between desktop, mobile and
+  tablet so no single device takes the whole budget.
+- A string published in more than one file is listed once and matches both source
+  filters, so **Most Common** still returns results.
+- Synthetic user agents, which upstream builds from currently-shipping versions,
+  are included in **Latest**.
+- Bot user agents are not offered.
+
+### Reliability
+
+- A dataset that 404s, returns a non-JSON body, or changes the field the User
+  Agent is read from now fails visibly and falls back, instead of quietly
+  serving a stale or empty list.
+- The cached list is versioned, so a list cached under the old format is ignored
+  after upgrading.
+
+---
+
 ## v4.2.0
 
 ### Parity improvements

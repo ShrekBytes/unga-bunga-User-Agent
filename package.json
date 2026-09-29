@@ -1,0 +1,8 @@
+{
+  "name": "unga-bunga-user-agent",
+  "private": true,
+  "description": "Test harness for the Unga Bunga User-Agent WebExtension. The extension ships no package metadata and has no dependencies; this exists only to run `npm test`. The version lives in manifest.json, which is what the release workflow reads.",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\""
+  }
+}

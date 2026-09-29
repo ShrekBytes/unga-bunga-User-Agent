@@ -210,6 +210,17 @@ The extension icon shows your current status:
 Found a bug or have a feature request?
 [Open an issue](https://github.com/ShrekBytes/unga-bunga-User-Agent/issues) or submit a pull request.
 
+### Running the tests
+
+```bash
+npm test
+```
+
+No install step: the extension has no dependencies and the test runner is built
+into Node, so Node 22 or newer is all you need. The tests cover the user agent
+source fetching, the list that gets built from it, and the popup filters. See
+[`tests/`](tests/) for details.
+
 
 ## 🙏 Acknowledgments
 

@@ -699,7 +699,8 @@ class PopupUI {
           if (this.preferences.source.includes('all')) {
             sourceMatch = true;
           } else {
-            sourceMatch = this.preferences.source.includes(ua.source);
+            // A string can belong to more than one source, so any overlap counts.
+            sourceMatch = sourceMatchesAny(ua.source, this.preferences.source);
           }
         }
         if (!sourceMatch) return false;

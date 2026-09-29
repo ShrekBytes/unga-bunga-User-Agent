@@ -11,7 +11,15 @@ permissions:
   contents: write
 
 jobs:
+  # Gates the release. The suite is defined once in tests.yml and called from
+  # here, because a workflow cannot depend on a job in another file.
+  test:
+    uses: ./.github/workflows/tests.yml
+    permissions:
+      contents: read
+
   build-release:
+    needs: test
     runs-on: ubuntu-latest
     outputs:
       version_changed: ${{ steps.version_check.outputs.version_changed }}
@@ -79,6 +87,7 @@ jobs:
             popup.css \
             popup.js \
             ua-parser.min.js \
+            shared \
             icons \
             inject
 

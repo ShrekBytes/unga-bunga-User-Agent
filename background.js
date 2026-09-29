@@ -1,5 +1,60 @@
 // Background script for User Agent Spoofer
 // UAParser and Agent are loaded via manifest.json background.scripts
+
+// User agent dataset: https://github.com/ShrekBytes/useragents-data
+// Upstream retired its `latest/` directory: those files sat frozen at browser
+// 134 while claiming to be current, and every one of the six paths this
+// extension used to fetch now 404s. The replacements are `common/` (observed,
+// with a measured frequency), `data/` (observed, current) and `synthetic/`
+// (built from currently-shipping product versions, never witnessed).
+const UA_DATA_BASE = 'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main';
+
+// `bot` is deliberately not fetched. Every string in this list is handed
+// straight to a User-Agent header, and a crawler string such as
+// `python-requests/2.34.2` is never the answer being looked for.
+const UA_CATEGORIES = ['desktop', 'mobile', 'tablet'];
+
+// `bucket` is the popup's source filter, not the upstream directory: a record's
+// `source` says which filters it answers to. Synthetic leads because it is built
+// from currently-shipping versions, so it is the freshest data available;
+// `common/` trails because upstream generates it from `data/`, so those strings
+// only add a second, measured claim on ones already in the list.
+const UA_SOURCES = [
+  // Upstream publishes a synthetic category only while its version manifest
+  // supports a template for it, and deletes the file once it stops
+  // qualifying. A 404 on one of these is expected, not a failure.
+  { path: 'synthetic', bucket: 'latest', optional: true },
+  { path: 'data', bucket: 'latest', optional: false },
+  { path: 'common', bucket: 'most_common', optional: false }
+];
+
+const UA_FILES = UA_CATEGORIES.flatMap(category => UA_SOURCES.map(src => ({
+  url: `${UA_DATA_BASE}/${src.path}/${category}.json`,
+  source: src.bucket,
+  category,
+  optional: src.optional
+})));
+
+// Upstream publishes a few hundred strings and orders them by measured
+// frequency, which deliberately puts old, high-traffic versions first. The list
+// is short so that the current ones are the ones that survive the cut.
+const UA_LIST_LIMIT = 200;
+
+// Browser versions are only comparable inside a family: Safari 26 is current
+// iOS, not a browser from 1998. Ranked as one number, a current iPhone string
+// sorts below Chrome 30 and gets cut, so each string is ranked against the
+// newest version seen for its own family instead. Ordered most specific first,
+// so an Edge string is not read as the Chrome it also names.
+const BROWSER_TOKENS = [
+  [/Firefox\/(\d+)/, 'firefox'],
+  [/Edg(?:e|A|iOS)?\/(\d+)/, 'edge'],
+  [/OPR\/(\d+)/, 'opera'],
+  [/Vivaldi\/(\d+)/, 'vivaldi'],
+  [/Silk\/(\d+)/, 'silk'],
+  [/Chrome\/(\d+)/, 'chrome'],
+  [/Version\/(\d+)/, 'safari']
+];
+
 class UserAgentSpoofer {
   constructor() {
     this.userAgents = [];
@@ -110,72 +165,153 @@ class UserAgentSpoofer {
     }
   }
 
+  async fetchUserAgentFile(file) {
+    const response = await fetch(file.url);
+    if (!response.ok) {
+      if (file.optional && response.status === 404) {
+        return [];
+      }
+      throw new Error(`${file.url} responded ${response.status}`);
+    }
+
+    const payload = await response.json();
+    if (!payload || !Array.isArray(payload.user_agents)) {
+      throw new Error(`${file.url} has no user_agents list`);
+    }
+
+    // `common/` publishes bare strings; `data/` and `synthetic/` (schema v4)
+    // publish records. Take the string out of whichever shape arrived rather
+    // than assuming one, so a record object never reaches the User-Agent header.
+    const strings = payload.user_agents
+      .map(record => (typeof record === 'string' ? record : record && record.user_agent))
+      .filter(ua => typeof ua === 'string' && ua.length > 0);
+
+    // An empty list is legitimate: upstream publishes one when the source that
+    // orders `common/` is down. Records we understood none of are not, and mean
+    // the field was renamed rather than that there is nothing to report.
+    if (payload.user_agents.length > 0 && strings.length === 0) {
+      throw new Error(`${file.url} published records with no recognisable user agent field`);
+    }
+
+    return strings;
+  }
+
+  browserVersion(ua) {
+    for (const [pattern, family] of BROWSER_TOKENS) {
+      const match = ua.match(pattern);
+      if (match) {
+        return { family, major: parseInt(match[1], 10) };
+      }
+    }
+    // No browser token at all: a bare WebKit string or an in-app webview. These
+    // are the worst thing to hand someone as a spoofed browser, so they rank
+    // last and are the first cut.
+    return null;
+  }
+
+  buildUserAgentList(perFile) {
+    // Merge within a category. `common/` is generated from `data/` upstream, so
+    // the same string arrives from both; keep every source it was published in,
+    // otherwise the Most Common filter would only ever match strings the Latest
+    // filter also offers, and the list would carry each of them twice.
+    const byCategory = new Map(UA_CATEGORIES.map(category => [category, new Map()]));
+    UA_FILES.forEach((file, index) => {
+      const category = byCategory.get(file.category);
+      for (const ua of perFile[index]) {
+        let entry = category.get(ua);
+        if (!entry) {
+          entry = { ua, source: [], device: file.category };
+          category.set(ua, entry);
+        }
+        if (!entry.source.includes(file.source)) {
+          entry.source.push(file.source);
+        }
+      }
+    });
+
+    const categories = UA_CATEGORIES.map(name => ({ name, entries: byCategory.get(name), quota: 0 }));
+
+    // Rank each string against the newest version seen for its own browser
+    // family, and cut from the bottom. This is the part that actually delivers
+    // "prioritise the latest": list position alone is not enough, because
+    // selection is a uniform random pick, so a stale string anywhere in the
+    // list is just as likely to be handed out as a current one. Sorting is
+    // stable, so equal scores keep upstream's own order as the tiebreak.
+    const newest = new Map();
+    for (const { entries } of categories) {
+      for (const entry of entries.values()) {
+        const version = this.browserVersion(entry.ua);
+        if (!version) continue;
+        const best = newest.get(version.family) || 0;
+        if (version.major > best) {
+          newest.set(version.family, version.major);
+        }
+      }
+    }
+    const currency = entry => {
+      const version = this.browserVersion(entry.ua);
+      if (!version) return 0;
+      return version.major / (newest.get(version.family) || version.major);
+    };
+    for (const category of categories) {
+      category.ordered = Array.from(category.entries.values()).sort((a, b) => currency(b) - currency(a));
+    }
+
+    // Share the cap between categories instead of letting it be filled by
+    // whichever is largest. Upstream publishes 112 desktop strings against 36
+    // tablet ones, so a single global cut hands the whole budget to desktop
+    // and the iPad filter ends up with nothing. Handing out one slot at a time,
+    // round robin, balances the list without needing a table of per-category
+    // numbers: each category gets an equal share, and whatever a short category
+    // cannot use passes to the others rather than being lost.
+    let budget = UA_LIST_LIMIT;
+    let open = categories.filter(category => category.entries.size > 0);
+    while (budget > 0 && open.length) {
+      for (const category of open) {
+        if (budget === 0) break;
+        if (category.quota < category.ordered.length) {
+          category.quota++;
+          budget--;
+        }
+      }
+      // Categories that ran out drop out; when they have all dropped out the
+      // loop ends, so there is no separate no-progress check to keep in step.
+      open = open.filter(category => category.quota < category.ordered.length);
+    }
+
+    const list = [];
+    for (const category of categories) {
+      list.push(...category.ordered.slice(0, category.quota));
+    }
+    return list;
+  }
+
   async fetchUserAgents() {
     try {
       // Caching: check if we have a recent cache (24h)
-      const CACHE_KEY = 'userAgentCache';
+      const CACHE_KEY = 'userAgentCacheV2';
       const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
       const cache = await browser.storage.local.get([CACHE_KEY]);
       const now = Date.now();
-      let useCache = false;
-      let cachedData = null;
+      let userAgents = null;
       if (cache[CACHE_KEY] && cache[CACHE_KEY].timestamp && (now - cache[CACHE_KEY].timestamp < CACHE_TTL)) {
-        cachedData = cache[CACHE_KEY].data;
-        useCache = true;
+        userAgents = cache[CACHE_KEY].userAgents;
       }
 
-      let data;
-      if (useCache) {
-        data = cachedData;
-      } else {
-        // Fetch all user agent sources
-        const urls = [
-          // Most Common
-          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/common/desktop.json',
-          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/common/mobile.json',
-          // Latest
-          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/android.json',
-          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/ipad.json',
-          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/iphone.json',
-          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/linux.json',
-          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/mac.json',
-          'https://raw.githubusercontent.com/ShrekBytes/useragents-data/main/latest/windows.json'
-        ];
-        const responses = await Promise.all(urls.map(url => fetch(url)));
-        data = await Promise.all(responses.map(response => response.json()));
+      if (!userAgents) {
+        const perFile = await Promise.all(UA_FILES.map(file => this.fetchUserAgentFile(file)));
+        userAgents = this.buildUserAgentList(perFile);
         // Save to cache
         await browser.storage.local.set({
           [CACHE_KEY]: {
             timestamp: now,
-            data: data
+            userAgents: userAgents
           }
         });
       }
 
-      // Process and tag user agents
-      const userAgents = [];
-      // Process most common
-      if (data[0] && data[0].user_agents) {
-        for (const ua of data[0].user_agents) {
-          userAgents.push({ ua, source: 'most_common', device: 'desktop' });
-        }
-      }
-      if (data[1] && data[1].user_agents) {
-        for (const ua of data[1].user_agents) {
-          userAgents.push({ ua, source: 'most_common', device: 'mobile' });
-        }
-      }
-      // Process latest
-      const latestDevices = ['android', 'ipad', 'iphone', 'linux', 'mac', 'windows'];
-      for (let i = 2; i < data.length; i++) {
-        if (data[i] && data[i].user_agents) {
-          for (const ua of data[i].user_agents) {
-            userAgents.push({ ua, source: 'latest', device: latestDevices[i - 2] });
-          }
-        }
-      }
       // Add custom user agents
-      userAgents.push(...this.customUserAgents.map(ua => ({ ...ua, source: 'custom' })));
+      userAgents.push(...this.customUserAgents.map(ua => ({ ...ua, source: ['custom'] })));
       this.userAgents = userAgents;
     } catch (error) {
       console.error('Failed to fetch user agents:', error);
@@ -183,42 +319,42 @@ class UserAgentSpoofer {
       this.userAgents = [
         {
           ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-          source: 'fallback',
+          source: ['fallback'],
           device: 'windows'
         },
         {
           ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
-          source: 'fallback',
+          source: ['fallback'],
           device: 'mac'
         },
         {
           ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
-          source: 'fallback',
+          source: ['fallback'],
           device: 'iphone'
         },
         {
           ua: 'Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36',
-          source: 'fallback',
+          source: ['fallback'],
           device: 'android'
         },
         {
           ua: 'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
-          source: 'fallback',
+          source: ['fallback'],
           device: 'ipad'
         },
         {
           ua: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-          source: 'fallback',
+          source: ['fallback'],
           device: 'linux'
         },
         {
           ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:142.0) Gecko/20100101 Firefox/142.0',
-          source: 'fallback',
+          source: ['fallback'],
           device: 'windows'
         },
         {
           ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13.5; rv:142.0) Gecko/20100101 Firefox/142.0',
-          source: 'fallback',
+          source: ['fallback'],
           device: 'mac'
         }
       ];
@@ -430,7 +566,10 @@ class UserAgentSpoofer {
 
   async addCustomUserAgent(userAgent) {
     const customUA = {
-      ua: userAgent
+      ua: userAgent,
+      // Tagged here too, or a newly added user agent stays invisible to the
+      // Custom source filter until the background script reloads.
+      source: ['custom']
     };
     
     this.customUserAgents.push(customUA);
@@ -479,9 +618,9 @@ class UserAgentSpoofer {
       let sourceMatch = true;
       if (source && source !== 'all') {
         if (Array.isArray(source)) {
-          sourceMatch = source.includes('all') || source.includes(ua.source);
+          sourceMatch = source.includes('all') || sourceMatchesAny(ua.source, source);
         } else {
-          sourceMatch = ua.source === source;
+          sourceMatch = sourceMatchesAny(ua.source, [source]);
         }
       }
       if (!sourceMatch) return false;
