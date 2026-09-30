@@ -82,7 +82,6 @@ jobs:
             manifest.json \
             agent.js \
             background.js \
-            content.js \
             popup.html \
             popup.css \
             popup.js \

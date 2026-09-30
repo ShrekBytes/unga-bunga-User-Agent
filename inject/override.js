@@ -1,17 +1,265 @@
 // Override script - modifies navigator properties
-// This runs in the MAIN world (page context)
+// This runs in the MAIN world (page context), registered by background.js via
+// browser.scripting.registerContentScripts with world: "MAIN" at document_start,
+// immediately after inject/main.js. Native registration is CSP-proof; never
+// inject this file as inline <script> text.
 
 // Portions of this file are from "UserAgent-Switcher" by ray-lothian,
 // licensed under the Mozilla Public License 2.0 (MPL-2.0).
 // Modifications made under the GNU General Public License v3.0 (GPLv3).
 
 {
-  const canOverride = () => {
-    return !(port.dataset.disabled === 'true' && !port.dataset.str);
+  // ------------------------------------------------------------------------
+  // user-agent client hints generation. The header layer (background.js ->
+  // clientHintsHeaders) builds the Sec-CH-UA* request headers from the exact
+  // same algorithms; keep the two implementations in sync or a page ends up
+  // with navigator data that disagrees with its own request headers.
+  // ------------------------------------------------------------------------
+
+  // Chromium derives the GREASE brand and the brands order from the browser's
+  // major version (components/embedder_support/user_agent_utils.cc ->
+  // GetGreasedUserAgentBrandVersion + ShuffleBrandList); a hardcoded
+  // "Not/A)Brand";v="8" with a fixed order is a reliable detection signal.
+  const greaseyChars = [' ', '(', ':', '-', '.', '/', ')', ';', '=', '?', '_'];
+  const greasedVersions = ['8', '99', '24'];
+  // the stable permutations Chromium uses to shuffle [grease, Chromium, brand]
+  const brandOrders = [
+    [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]
+  ];
+
+  const greaseBrand = major => {
+    const m = Number(major);
+    if (Number.isInteger(m) && m >= 0) {
+      return {
+        brand: 'Not' + greaseyChars[m % greaseyChars.length] + 'A' +
+          greaseyChars[(m + 1) % greaseyChars.length] + 'Brand',
+        version: greasedVersions[m % greasedVersions.length]
+      };
+    }
+    // unknown major -> the legacy pair this extension always used
+    return {brand: 'Not/A)Brand', version: '8'};
+  };
+
+  // brands carry their commercial name, not the UA token; Android Chrome
+  // parses as "Mobile Chrome" but reports the regular "Google Chrome" brand
+  const brandName = name => {
+    if (name === 'Chrome' || name === 'Mobile Chrome') {
+      return 'Google Chrome';
+    }
+    if (name === 'Edge') {
+      return 'Microsoft Edge';
+    }
+    return name || 'Chromium';
+  };
+
+  const fullVersionOf = (ua, token) => {
+    const m = (ua || '').match(new RegExp(token + '\\/(\\d+(?:\\.\\d+)*)'));
+    return m ? m[1] : '';
+  };
+
+  // the browser brand's full version; Edge and Opera report their own full
+  // version next to the Chromium core one
+  const browserFullVersionOf = (p, ua) => {
+    const name = p?.browser?.name || 'Chrome';
+    const major = String(p?.browser?.major || '');
+    const chromeFull = fullVersionOf(ua, 'Chrome') || (major ? major + '.0.0.0' : '');
+    if (name === 'Edge') {
+      return fullVersionOf(ua, 'Edg(?:e|A|iOS)?') || chromeFull;
+    }
+    if (name === 'Opera') {
+      return fullVersionOf(ua, 'OPR') || chromeFull;
+    }
+    return chromeFull;
+  };
+
+  // builds the brands list (full=false) or the fullVersionList shape (full=
+  // true) where every entry carries its full version and the GREASE entry
+  // extends its major-only version with ".0.0.0" (GetProcessedGreasedBrandVersion)
+  const brandListOf = (p, ua, full) => {
+    const browser = p?.browser || {};
+    const name = browser.name || 'Chrome';
+    const major = String(browser.major || '');
+    const g = greaseBrand(major);
+    const m = Number(major);
+    const seed = Number.isInteger(m) && m >= 0 ? m : 0;
+
+    // the Chromium entry always reflects the Chromium core (the Chrome/ token
+    // of the UA), not the browser brand's own version; Opera for example
+    // reports "Opera";v="105", "Chromium";v="119"
+    const chromeFull = fullVersionOf(ua, 'Chrome') || (major ? major + '.0.0.0' : '');
+    const chromeMajor = chromeFull.split('.')[0] || major;
+
+    let list = [{
+      brand: g.brand,
+      version: full ? g.version + '.0.0.0' : g.version
+    }, {
+      brand: 'Chromium',
+      version: full ? chromeFull : chromeMajor
+    }, {
+      brand: brandName(name),
+      version: full ? browserFullVersionOf(p, ua) : major
+    }];
+
+    // Edge and Opera prepend their own brand instead of shuffling; unbranded
+    // Chromium only reports two brands
+    if (name === 'Edge' || name === 'Opera') {
+      list = [list[2], list[1], list[0]];
+    }
+    else if (name === 'Chromium') {
+      list = [list[0], list[1]];
+      const shuffled = [];
+      [seed % 2, (seed + 1) % 2].forEach((pos, i) => shuffled[pos] = list[i]);
+      list = shuffled;
+    }
+    else {
+      const shuffled = [];
+      brandOrders[seed % brandOrders.length].forEach((pos, i) => shuffled[pos] = list[i]);
+      list = shuffled;
+    }
+    // real Chrome returns a frozen array (the entries themselves are not)
+    return Object.freeze(list);
+  };
+
+  // real Chrome only reports the 8 platform values from the spec
+  // (https://wicg.github.io/ua-client-hints/#sec-ch-ua-platform); leaking
+  // "Ubuntu" instead of "Linux" or "Chromium OS" instead of "Chrome OS" is a
+  // giveaway
+  const platformOf = os => {
+    const name = (os?.name || '').toLowerCase();
+    if (name.includes('mac')) {
+      return 'macOS';
+    }
+    if (name.includes('windows')) {
+      return 'Windows';
+    }
+    if (name.includes('android')) {
+      return 'Android';
+    }
+    if (name.includes('ios')) {
+      return 'iOS';
+    }
+    if (name.includes('chrome os') || name.includes('chromium os')) {
+      return 'Chrome OS';
+    }
+    if (name.includes('fuchsia')) {
+      return 'Fuchsia';
+    }
+    // every Linux distribution (Ubuntu, Debian, Fedora, Mint, ...) reports
+    // plain "Linux"
+    if (/linux|debian|ubuntu|fedora|mint|centos|red ?hat|arch|suse|gentoo|kubuntu|xubuntu|lubuntu|kali|manjaro|deepin|raspbian|elementary|zorin|pop!_os|mandriva|pclinuxos|zenwalk/.test(name)) {
+      return 'Linux';
+    }
+    return 'Unknown';
+  };
+
+  // Chrome never reports the raw OS version: Windows goes through the
+  // UniversalApiContract mapping (Win10 -> "13.0.0", Win8.1 -> "0.3.0", ...),
+  // Linux and Fuchsia report "", the rest reports "major.minor.patch"
+  // (https://wicg.github.io/ua-client-hints/#get-the-platform-version)
+  const platformVersionOf = (p, ua) => {
+    const name = (p?.os?.name || '').toLowerCase();
+    if (name.includes('windows')) {
+      const m = (ua || '').match(/Windows NT ([\d.]+)/);
+      // Windows 11 also sends "Windows NT 10.0"; "13.0.0" is the Windows 10
+      // contract version reported when the OS build is unknown
+      return {
+        '10.0': '13.0.0',
+        '6.3': '0.3.0',
+        '6.2': '0.2.0',
+        '6.1': '0.1.0'
+      }[m ? m[1] : ''] || '13.0.0';
+    }
+    if (name.includes('mac') || name.includes('android') || name.includes('ios')) {
+      const m = name.includes('mac') ?
+        (ua || '').match(/Mac OS X ([\d_]+)/) :
+        name.includes('android') ?
+          (ua || '').match(/Android (\d+(?:\.\d+)*)/) :
+          (ua || '').match(/OS (\d+(?:[._]\d+)*) like Mac OS X/);
+      const fallback = name.includes('mac') ? '10.15.7' : '10.0.0';
+      // create a unified platform version string (spec algorithm): three
+      // integer components, invalid or missing ones become "0"
+      const parts = ((m ? m[1] : p?.os?.version) || fallback)
+        .replace(/_/g, '.').split('.')
+        .map(s => /^\d+$/.test(s) ? s : '0');
+      while (parts.length < 3) {
+        parts.push('0');
+      }
+      return parts.slice(0, 3).join('.');
+    }
+    // Linux, Fuchsia and anything else report the empty string
+    return '';
+  };
+
+  // Chrome maps every CPU architecture to "x86" or "arm" and reports "" on
+  // Android (https://wicg.github.io/ua-client-hints/#user-agent-platform-architecture)
+  const architectureOf = (p, ua, mobile) => {
+    if (mobile) {
+      return '';
+    }
+    if ((p?.cpu?.architecture || '').toLowerCase().includes('arm') ||
+        /aarch64|armv[3-8]|\barm\b|arm mac os x/i.test(ua || '')) {
+      return 'arm';
+    }
+    return 'x86';
+  };
+
+  // a 32-bit browser on 64-bit Windows ("WOW64" in the UA) reports "32"
+  const bitnessOf = (ua, mobile) => {
+    return mobile ? '' : (/wow64/i.test(ua || '') ? '32' : '64');
+  };
+
+  // the spec requires "" when mobileness is false; Android carries the model
+  // in the UA ("Android 10; K" -> "K", "...; SM-G960F Build/..." -> "SM-G960F")
+  const modelOf = (p, ua, mobile) => {
+    if (!mobile) {
+      return '';
+    }
+    const m = (ua || '').match(/Android[^;)]*; ?([^;)]+)/);
+    return (m ? m[1] : (p?.device?.model || '')).split(/\s+Build\b/)[0].trim();
+  };
+
+  // ------------------------------------------------------------------------
+  // prototype-level spoofing. Placing the accessors on the navigator's
+  // prototype (like the real browser does) closes the classic detection
+  // vector of reading the original value through the prototype descriptor:
+  // Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent')
+  //   .get.call(navigator)
+  // must return the spoofed value, and the navigator instance must not carry
+  // any own property (real Chrome has none).
+  // ------------------------------------------------------------------------
+
+  // builds a named accessor whose name, arity and toString() output match the
+  // native ones ("function get userAgent() { [native code] }")
+  const nativeGetter = (key, get) => {
+    const getter = {
+      [key]: function() {
+        return get(this);
+      }
+    }[key];
+    Object.defineProperty(getter, 'name', {
+      value: 'get ' + key,
+      configurable: true
+    });
+    getter.toString = () => `function get ${key}() { [native code] }`;
+    return getter;
+  };
+
+  // defines the accessor on the navigator's prototype and falls back to the
+  // instance when the prototype is frozen (or inaccessible, e.g. Firefox
+  // Xray wrappers) so spoofing never silently fails
+  const define = (nav, key, get) => {
+    const getter = nativeGetter(key, get);
+    const proto = Object.getPrototypeOf(nav);
+    try {
+      proto.__defineGetter__(key, getter);
+    }
+    catch (e) {
+      console.info('[Unga Bunga UA] prototype define failed for', key, e);
+      nav.__defineGetter__(key, getter);
+    }
   };
 
   const override = (nav, reason) => {
-    // Ensure port data is prepared
     if (port.dataset.ready !== 'true') {
       port.prepare();
     }
@@ -27,47 +275,27 @@
       })();
       const strictParity = port.prefs.strictParity !== false;
 
-      // Handle navigator.userAgentData for Chromium-based browsers
       if (port.prefs.userAgentDataBuilder && (!strictParity || hasNativeUAData)) {
+        const b = port.prefs.userAgentDataBuilder;
+        const ua = b.ua || '';
+        const p = b.p || {};
+        // keep the exact same mobileness regex as the header layer
+        const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+
         const v = new class NavigatorUAData {
-          #p;
-
-          constructor({p, ua}) {
-            this.#p = p;
-
-            const version = p.browser.major;
-            const name = p.browser.name === 'Chrome' ? 'Google Chrome' : p.browser.name;
-
-            this.brands = [{
-              brand: 'Not/A)Brand',
-              version: '8'
-            }, {
-              brand: 'Chromium',
-              version
-            }, {
-              brand: name,
-              version
-            }];
-
-            this.mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-
-            // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Sec-CH-UA-Platform
-            this.platform = 'Unknown';
-            if (p.os && p.os.name) {
-              const name = p.os.name.toLowerCase();
-              if (name.includes('mac')) {
-                this.platform = 'macOS';
-              }
-              else if (name.includes('debian')) {
-                this.platform = 'Linux';
-              }
-              else {
-                this.platform = p.os.name;
-              }
-            }
+          #d;
+          constructor(d) {
+            this.#d = d;
           }
-          get [Symbol.toStringTag]() {
-            return 'NavigatorUAData';
+          // brands/mobile/platform are prototype accessors in real Chrome
+          get brands() {
+            return this.#d.brands;
+          }
+          get mobile() {
+            return this.#d.mobile;
+          }
+          get platform() {
+            return this.#d.platform;
           }
           toJSON() {
             return {
@@ -77,40 +305,85 @@
             };
           }
           getHighEntropyValues(hints) {
-            if (!hints || Array.isArray(hints) === false) {
-              return Promise.reject(Error(`Failed to execute 'getHighEntropyValues' on 'NavigatorUAData'`));
+            // invalid hints reject the promise (they do not throw
+            // synchronously); unknown hints are silently ignored and matching
+            // is case-sensitive
+            if (hints === null || typeof hints !== 'object' ||
+                typeof hints[Symbol.iterator] !== 'function') {
+              return Promise.reject(new TypeError(
+                'Failed to execute \'getHighEntropyValues\' on \'NavigatorUAData\':' +
+                ' The provided value cannot be converted to a sequence.'
+              ));
             }
-
-            const r = this.toJSON();
-
-            if (hints.includes('architecture')) {
-              r.architecture = this.#p?.cpu?.architecture || 'x86';
+            const list = [...hints];
+            const d = this.#d;
+            // UADataValues members serialize in declaration (alphabetical) order
+            const r = {};
+            if (list.includes('architecture')) {
+              r.architecture = d.architecture;
             }
-            if (hints.includes('bitness')) {
-              r.bitness = '64';
+            if (list.includes('bitness')) {
+              r.bitness = d.bitness;
             }
-            if (hints.includes('model')) {
-              r.model = '';
+            r.brands = d.brands;
+            if (list.includes('formFactors')) {
+              r.formFactors = d.formFactors;
             }
-            if (hints.includes('platformVersion')) {
-              r.platformVersion = this.#p?.os?.version || '10.0.0';
+            if (list.includes('fullVersionList')) {
+              r.fullVersionList = d.fullVersionList;
             }
-            if (hints.includes('uaFullVersion')) {
-              r.uaFullVersion = this.brands[0].version;
+            r.mobile = d.mobile;
+            if (list.includes('model')) {
+              r.model = d.model;
             }
-            if (hints.includes('fullVersionList')) {
-              r.fullVersionList = this.brands;
+            r.platform = d.platform;
+            if (list.includes('platformVersion')) {
+              r.platformVersion = d.platformVersion;
+            }
+            if (list.includes('uaFullVersion')) {
+              r.uaFullVersion = d.uaFullVersion;
+            }
+            if (list.includes('wow64')) {
+              r.wow64 = d.wow64;
             }
             return Promise.resolve(r);
           }
-        }(port.prefs.userAgentDataBuilder);
+        }({
+          brands: brandListOf(p, ua, false),
+          fullVersionList: brandListOf(p, ua, true),
+          mobile,
+          platform: platformOf(p.os),
+          platformVersion: platformVersionOf(p, ua),
+          architecture: architectureOf(p, ua, mobile),
+          bitness: bitnessOf(ua, mobile),
+          model: modelOf(p, ua, mobile),
+          formFactors: [mobile ? 'Mobile' : 'Desktop'],
+          wow64: false,
+          uaFullVersion: browserFullVersionOf(p, ua)
+        });
 
-        nav.__defineGetter__('userAgentData', () => {
+        // real Chrome reports "[object NavigatorUAData]"
+        Object.defineProperty(Object.getPrototypeOf(v), Symbol.toStringTag, {
+          value: 'NavigatorUAData'
+        });
+
+        // native method/constructor toString() outputs; the methods' name,
+        // arity and the constructor's .prototype presence already match
+        for (const [fn, source] of [
+          [v.toJSON, 'function toJSON() { [native code] }'],
+          [v.getHighEntropyValues, 'function getHighEntropyValues() { [native code] }'],
+          [v.constructor, 'function NavigatorUAData() { [native code] }']
+        ]) {
+          fn.toString = () => source;
+        }
+
+        define(nav, 'userAgentData', () => {
           return v;
         });
       }
       else if (strictParity) {
-        // In strict mode, do not expose userAgentData where it does not exist natively.
+        // In strict mode, do not expose userAgentData where it does not exist
+        // natively.
         port.prefs.userAgentData = '[delete]';
       }
       delete port.prefs.userAgentDataBuilder;
@@ -124,7 +397,7 @@
           delete Object.getPrototypeOf(nav)[key];
         }
         else {
-          nav.__defineGetter__(key, () => {
+          define(nav, key, () => {
             if (port.prefs[key] === 'empty') {
               return '';
             }
@@ -134,149 +407,23 @@
       }
     }
     catch (e) {
-      console.error('[Unga Bunga UA] Failed to override navigator properties:', e);
-    }
-  };
-
-  const overrideFrameNavigator = (win, reason) => {
-    try {
-      if (win && win.navigator) {
-        override(win.navigator, reason);
-      }
-    }
-    catch (e) {
-      // Cross-origin frames can throw; ignore and continue.
-    }
-  };
-
-  const installIframeHooks = () => {
-    if (self.top !== self) {
-      return;
-    }
-
-    try {
-      const frameProto = self.HTMLIFrameElement && self.HTMLIFrameElement.prototype;
-      if (!frameProto || frameProto.__uaswContentWindowHooked) {
-        return;
-      }
-
-      Object.defineProperty(frameProto, '__uaswContentWindowHooked', {
-        value: true,
-        configurable: true
-      });
-
-      const contentWindowDesc = Object.getOwnPropertyDescriptor(frameProto, 'contentWindow');
-      if (contentWindowDesc && typeof contentWindowDesc.get === 'function') {
-        Object.defineProperty(frameProto, 'contentWindow', {
-          configurable: contentWindowDesc.configurable !== false,
-          enumerable: contentWindowDesc.enumerable === true,
-          get() {
-            const win = contentWindowDesc.get.call(this);
-            if (canOverride()) {
-              overrideFrameNavigator(win, 'iframe-contentWindow-getter');
-            }
-            return win;
-          }
-        });
-      }
-
-      const hookFrame = frame => {
-        if (!frame || frame.tagName !== 'IFRAME') {
-          return;
-        }
-
-        if (frame.__uaswLoadHooked) {
-          return;
-        }
-        frame.__uaswLoadHooked = true;
-
-        frame.addEventListener('load', () => {
-          if (canOverride()) {
-            overrideFrameNavigator(frame.contentWindow, 'iframe-load');
-          }
-        }, true);
-
-        if (canOverride()) {
-          overrideFrameNavigator(frame.contentWindow, 'iframe-immediate');
-        }
-      };
-
-      const observer = new MutationObserver(mutations => {
-        for (const mutation of mutations) {
-          for (const node of mutation.addedNodes) {
-            if (node.nodeType !== Node.ELEMENT_NODE) {
-              continue;
-            }
-
-            if (node.tagName === 'IFRAME') {
-              hookFrame(node);
-            }
-
-            if (typeof node.querySelectorAll === 'function') {
-              node.querySelectorAll('iframe').forEach(hookFrame);
-            }
-          }
-        }
-      });
-
-      observer.observe(document.documentElement, {
-        childList: true,
-        subtree: true
-      });
-
-      document.querySelectorAll('iframe').forEach(hookFrame);
-    }
-    catch (e) {
-      console.info('[Unga Bunga UA] Failed to install iframe hooks:', e);
+      console.error('[Unga Bunga UA] UA_SET_FAILED', e);
     }
   };
 
   const port = document.getElementById('uas-port');
-  let mainOverrideApplied = false;
-
-  const tryMainOverride = reason => {
-    if (mainOverrideApplied) {
-      return true;
-    }
-    if (canOverride() && port.dataset.str) {
-      override(navigator, reason);
-      mainOverrideApplied = true;
-      return true;
-    }
-    return false;
-  };
-
-  // Try immediately, then watch for late-arriving UA payload.
-  tryMainOverride('bootstrap-immediate');
-  const portObserver = new MutationObserver(() => {
-    if (tryMainOverride('bootstrap-observer')) {
-      portObserver.disconnect();
-    }
-  });
-  portObserver.observe(port, {
-    attributes: true,
-    attributeFilter: ['data-str', 'data-disabled', 'data-ready']
-  });
-  setTimeout(() => {
-    tryMainOverride('bootstrap-timeout');
-    portObserver.disconnect();
-  }, 1500);
-
-  installIframeHooks();
   port.addEventListener('override', e => {
     if (e.detail.id === port.dataset.id) {
       override(navigator, e.detail.reason);
-      mainOverrideApplied = true;
     }
     else {
       try {
-        const nav = port.ogs.get(e.detail.id).navigator;
-        override(nav, e.detail.reason);
+        const win = port.ogs.get(e.detail.id);
+        override(win.navigator, e.detail.reason);
       }
       catch (err) {
-        console.info('[Failed to override]', err);
+        console.info('[Unga Bunga UA] [Failed to override]', err);
       }
     }
   });
 }
-

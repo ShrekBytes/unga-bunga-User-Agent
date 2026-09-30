@@ -40,6 +40,12 @@ function stubBrowser(store) {
     },
     browserAction: { setBadgeText: noop, setBadgeBackgroundColor: noop },
     webRequest: { onBeforeSendHeaders: event(), onHeadersReceived: event() },
+    scripting: {
+      getRegisteredContentScripts: async () => [],
+      registerContentScripts: async () => {},
+      unregisterContentScripts: async () => {},
+      executeScript: async () => []
+    },
     runtime: { onMessage: event(), onInstalled: event(), getURL: p => p },
     tabs: { query: async () => [], onUpdated: event(), onRemoved: event() }
   };
@@ -76,13 +82,15 @@ function loadBackground({ routes = {}, store = {} } = {}) {
 
   const exp = new Function(
     'UAParser', 'Agent', 'sourceMatchesAny', 'browser', 'fetch', 'console', ...Object.keys(TIMERS),
-    `${read('background.js')}\n;return { spoofer, UA_FILES, UA_CATEGORIES, UA_LIST_LIMIT, UA_SOURCES };`
+    `${read('background.js')}\n;return { spoofer, UA_FILES, UA_CATEGORIES, UA_LIST_LIMIT, UA_SOURCES, clientHintsHeaders, chBrandListOf, chPlatformOf };`
   )(UAParser, Agent, sourceMatchesAny, browser, fetchImpl, console, ...Object.values(TIMERS));
 
   return {
     ...exp,
     store,
     calls,
+    /** Resolves once the spoofer has loaded its settings and registered everything. */
+    ready: exp.spoofer.initPromise || Promise.resolve(),
     /** Run the real fetch + build pipeline over the routes, in UA_FILES order. */
     async build() {
       const perFile = [];

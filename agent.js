@@ -3,20 +3,24 @@ class Agent {
   #prefs = {}; // userAgentData, parser
 
   deriveAppVersion(userAgent) {
-    // Keep appVersion structurally consistent with userAgent.
-    const mozillaMatch = userAgent.match(/^Mozilla\/([^\s]+)\s?(.*)$/);
-    if (mozillaMatch) {
-      const [, version, rest] = mozillaMatch;
-      return `${version}${rest ? ` ${rest}` : ''}`.trim();
+    // Keep appVersion structurally consistent with userAgent. Real Chromium
+    // appVersion is the UA minus the "Mozilla/" token; real Firefox is a
+    // fixed "5.0 (Windows)" / "5.0 (Macintosh)" shape that never mirrors the
+    // rest of the string. Getting this wrong is the exact
+    // "[normal] userAgent vs [aggressive] appVersion" mismatch reported in
+    // issue #4. Shape ported from "UserAgent-Switcher" by ray-lothian
+    // (MPL-2.0); modifications under GPLv3.
+    const stripped = userAgent
+      .replace(/^Mozilla\//, '')
+      .replace(/^Opera\//, '');
+
+    if (/Firefox/.test(userAgent)) {
+      // "(Windows NT 10.0; ...)" -> "(Windows)"; "(Macintosh; ...)" ->
+      // "(Macintosh)": exactly the two shapes real Firefox reports.
+      return '5.0 ' + stripped.replace('5.0 ', '').split(/[\s;]/)[0] + ')';
     }
 
-    const operaMatch = userAgent.match(/^Opera\/([^\s]+)\s?(.*)$/);
-    if (operaMatch) {
-      const [, version, rest] = operaMatch;
-      return `${version}${rest ? ` ${rest}` : ''}`.trim();
-    }
-
-    return userAgent;
+    return stripped.trim();
   }
 
   prefs(prefs) {
@@ -126,6 +130,10 @@ class Agent {
     if (isSF) {
       o.vendor = 'Apple Computer, Inc.';
     }
+    else if (isFF) {
+      // real Firefox reports navigator.vendor === ''
+      o.vendor = '';
+    }
     else if (isFF === false) {
       o.vendor = 'Google Inc.';
     }
@@ -150,7 +158,11 @@ class Agent {
       o.productSub = '20030107';
 
       if (this.#prefs.userAgentData && p.browser && p.browser.major) {
-        if (['Opera', 'Chrome', 'Edge'].includes(p.browser.name)) {
+        // navigator.userAgentData only exists on Chromium-based browsers;
+        // unbranded Chromium reports a two-brand list and Android Chrome
+        // parses as "Mobile Chrome" (both reported by the upstream reference)
+        if (['Opera', 'Chrome', 'Edge', 'Chromium', 'Mobile Chrome'].includes(p.browser.name) &&
+            /Chrome\/\d+/.test(s)) {
           o.userAgentDataBuilder = {p, ua: s};
           delete o.userAgentData;
         }

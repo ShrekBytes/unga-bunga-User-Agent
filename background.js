@@ -79,6 +79,141 @@ const BROWSER_TOKENS = [
   [/Version\/(\d+)/, 'safari']
 ];
 
+// ---------------------------------------------------------------------------
+// Client hints: the single source of truth for the Sec-CH-UA* request headers.
+// inject/override.js derives navigator.userAgentData from the same algorithms;
+// keep the two implementations in sync or a page ends up with navigator data
+// that disagrees with its own request headers, which is exactly the
+// "normal vs aggressive" mismatch webbrowsertools.com flags (issue #4).
+// Derived from "UserAgent-Switcher" by ray-lothian (MPL-2.0).
+// Chromium derives the GREASE brand and the brands order from the browser's
+// major version (components/embedder_support/user_agent_utils.cc ->
+// GetGreasedUserAgentBrandVersion + ShuffleBrandList); a hardcoded
+// "Not/A)Brand";v="8" with a fixed order is a reliable detection signal.
+// ---------------------------------------------------------------------------
+const CH_GREASY_CHARS = [' ', '(', ':', '-', '.', '/', ')', ';', '=', '?', '_'];
+const CH_GREASED_VERSIONS = ['8', '99', '24'];
+const CH_BRAND_ORDERS = [
+  [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]
+];
+
+const chGreaseBrand = major => {
+  const m = Number(major);
+  if (Number.isInteger(m) && m >= 0) {
+    return {
+      brand: 'Not' + CH_GREASY_CHARS[m % CH_GREASY_CHARS.length] + 'A' +
+        CH_GREASY_CHARS[(m + 1) % CH_GREASY_CHARS.length] + 'Brand',
+      version: CH_GREASED_VERSIONS[m % CH_GREASED_VERSIONS.length]
+    };
+  }
+  // unknown major -> the legacy pair this extension always used
+  return {brand: 'Not/A)Brand', version: '8'};
+};
+
+// brands carry their commercial name, not the UA token; Android Chrome
+// parses as "Mobile Chrome" but reports the regular "Google Chrome" brand
+const chBrandName = name => {
+  if (name === 'Chrome' || name === 'Mobile Chrome') {
+    return 'Google Chrome';
+  }
+  if (name === 'Edge') {
+    return 'Microsoft Edge';
+  }
+  return name || 'Chromium';
+};
+
+const chBrandListOf = (p, ua) => {
+  const browser = p?.browser || {};
+  const name = browser.name || 'Chrome';
+  const major = String(browser.major || '');
+  const g = chGreaseBrand(major);
+  const m = Number(major);
+  const seed = Number.isInteger(m) && m >= 0 ? m : 0;
+
+  // the Chromium entry always reflects the Chromium core (the Chrome/ token
+  // of the UA), not the browser brand's own version; Opera for example
+  // reports "Opera";v="105", "Chromium";v="119"
+  const chromeMajor = (ua || '').match(/Chrome\/(\d+)/)?.[1] || major;
+
+  let list = [{
+    brand: g.brand,
+    version: g.version
+  }, {
+    brand: 'Chromium',
+    version: chromeMajor
+  }, {
+    brand: chBrandName(name),
+    version: major
+  }];
+
+  // Edge and Opera prepend their own brand instead of shuffling; unbranded
+  // Chromium only reports two brands
+  if (name === 'Edge' || name === 'Opera') {
+    list = [list[2], list[1], list[0]];
+  }
+  else if (name === 'Chromium') {
+    list = [list[0], list[1]];
+    const shuffled = [];
+    [seed % 2, (seed + 1) % 2].forEach((pos, i) => shuffled[pos] = list[i]);
+    list = shuffled;
+  }
+  else {
+    const shuffled = [];
+    CH_BRAND_ORDERS[seed % CH_BRAND_ORDERS.length].forEach((pos, i) => shuffled[pos] = list[i]);
+    list = shuffled;
+  }
+  return list;
+};
+
+// real Chrome only reports the 8 platform values from the spec
+// (https://wicg.github.io/ua-client-hints/#sec-ch-ua-platform); leaking
+// "Ubuntu" instead of "Linux" is a giveaway
+const chPlatformOf = os => {
+  const name = (os?.name || '').toLowerCase();
+  if (name.includes('mac')) {
+    return 'macOS';
+  }
+  if (name.includes('windows')) {
+    return 'Windows';
+  }
+  if (name.includes('android')) {
+    return 'Android';
+  }
+  if (name.includes('ios')) {
+    return 'iOS';
+  }
+  if (name.includes('chrome os') || name.includes('chromium os')) {
+    return 'Chrome OS';
+  }
+  if (name.includes('fuchsia')) {
+    return 'Fuchsia';
+  }
+  // every Linux distribution (Ubuntu, Debian, Fedora, Mint, ...) reports
+  // plain "Linux"
+  if (/linux|debian|ubuntu|fedora|mint|centos|red ?hat|arch|suse|gentoo|kubuntu|xubuntu|lubuntu|kali|manjaro|deepin|raspbian|elementary|zorin|pop!_os|mandriva|pclinuxos|zenwalk/.test(name)) {
+    return 'Linux';
+  }
+  return 'Unknown';
+};
+
+/**
+ * The three Sec-CH-UA* header values for a parsed user agent, shared by the
+ * request-header rewriter and the async fallback's consistency checks.
+ */
+function clientHintsHeaders(parsedUA, uaString) {
+  const uaData = parsedUA.userAgentDataBuilder;
+  const version = uaData.p?.browser?.major || '107';
+  const name = uaData.p?.browser?.name || 'Google Chrome';
+  const platform = chPlatformOf(uaData.p?.os);
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(uaString || '');
+
+  return {
+    'sec-ch-ua-platform': `"${platform}"`,
+    'sec-ch-ua': chBrandListOf(uaData.p, uaString).map(e => `"${e.brand}";v="${e.version}"`).join(', '),
+    'sec-ch-ua-mobile': isMobile ? '?1' : '?0'
+  };
+}
+
 class UserAgentSpoofer {
   constructor() {
     this.userAgents = [];
@@ -92,7 +227,7 @@ class UserAgentSpoofer {
     this.strictParity = true;
     this.agent = new Agent();
     this.agent.prefs({ userAgentData: true, parser: {} });
-    this.init();
+    this.initPromise = this.init();
   }
 
   async init() {
@@ -102,7 +237,13 @@ class UserAgentSpoofer {
     // remote user-agent list fetching is still in progress.
     this.setupRequestListener();
     this.setupResponseListener();
+    this.setupInjectionManager();
     this.updateBadge();
+
+    // Sync the registered content scripts with the persisted scope. Startup,
+    // extension updates and browser restarts all land here, so the injection
+    // scope can never drift from the settings it mirrors.
+    await this.applyInjectionScope();
 
     this.fetchUserAgents().catch(error => {
       console.error('[Unga Bunga UA] Failed to refresh UA list during init:', error);
@@ -439,38 +580,13 @@ class UserAgentSpoofer {
           !headersToRemove.includes(header.name.toLowerCase())
         );
 
-        // Add Client Hints headers for Chrome-based user agents
+        // Add Client Hints headers for Chrome-based user agents, built by
+        // the same algorithms inject/override.js uses for navigator.userAgentData
         if (this.currentParsedUA.userAgentDataBuilder) {
-          const uaData = this.currentParsedUA.userAgentDataBuilder;
-          let platform = uaData.p?.os?.name || 'Windows';
-          
-          if (platform.toLowerCase().includes('mac')) {
-            platform = 'macOS';
-          } else if (platform.toLowerCase().includes('debian')) {
-            platform = 'Linux';
+          const hints = clientHintsHeaders(this.currentParsedUA, this.currentUserAgent);
+          for (const [name, value] of Object.entries(hints)) {
+            headers.push({ name, value });
           }
-
-          const version = uaData.p?.browser?.major || '107';
-          let name = uaData.p?.browser?.name || 'Google Chrome';
-          if (name === 'Chrome') {
-            name = 'Google Chrome';
-          }
-
-          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(this.currentUserAgent);
-
-          // Add the essential Client Hints headers
-          headers.push({
-            name: 'sec-ch-ua-platform',
-            value: `"${platform}"`
-          });
-          headers.push({
-            name: 'sec-ch-ua',
-            value: `"Not/A)Brand";v="8", "Chromium";v="${version}", "${name}";v="${version}"`
-          });
-          headers.push({
-            name: 'sec-ch-ua-mobile',
-            value: isMobile ? '?1' : '?0'
-          });
         }
 
         return { requestHeaders: headers };
@@ -501,17 +617,9 @@ class UserAgentSpoofer {
 
         try {
           const headers = details.responseHeaders || [];
-          
-          // Create the UA object for injection
-          const uaObject = Object.assign({}, this.currentParsedUA, {
-            type: 'user',
-            strictParity: this.strictParity
-          });
-          
-          // Add Server-Timing header with UA data
           headers.push({
             name: 'Server-Timing',
-            value: `uasw-json-data;dur=0;desc="${encodeURIComponent(JSON.stringify(uaObject))}"`
+            value: this.serverTimingHeader()
           });
 
           return { responseHeaders: headers };
@@ -523,6 +631,180 @@ class UserAgentSpoofer {
       { urls: ['<all_urls>'], types: ['main_frame', 'sub_frame'] },
       ['blocking', 'responseHeaders']
     );
+  }
+
+  /**
+   * The encoded navigator config, delivered to inject/main.js through the
+   * response's Server-Timing header. Carries the scope mirrors (protected) so
+   * every layer evaluates the same URL rules.
+   */
+  serverTimingHeader() {
+    const uaObject = Object.assign({}, this.currentParsedUA, {
+      type: 'user',
+      strictParity: this.strictParity,
+      protected: []
+    });
+    return `uasw-json-data;dur=0;desc="${encodeURIComponent(JSON.stringify(uaObject))}"`;
+  }
+
+  /** The exact payload inside serverTimingHeader(), for the async fallback. */
+  serverTimingPayload() {
+    const uaObject = Object.assign({}, this.currentParsedUA, {
+      type: 'user',
+      strictParity: this.strictParity,
+      protected: []
+    });
+    return encodeURIComponent(JSON.stringify(uaObject));
+  }
+
+  /**
+   * Header-mirrored scope: the exact set of hosts whose pages may spoof, as
+   * match patterns for content-script registration. shouldApplyUserAgent is
+   * the single decision maker; this only reshapes its inputs so the injected
+   * scripts and the rewritten headers never disagree (issue #4).
+   */
+  injectionScope() {
+    const all = this.isEnabled && (
+      this.mode === 'all' ||
+      this.mode === 'blacklist' ||
+      (this.mode === 'whitelist' && this.whitelist.length === 0)
+    );
+
+    const hosts = list => [...new Set(
+      (list || [])
+        .map(site => String(site).toLowerCase().trim()
+          .replace(/^https?:\/\//, '')
+          .replace(/^\*\./, '')
+          .split('/')[0]
+          .split(':')[0]
+          .replace(/\.$/, ''))
+        .filter(site => /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(site))
+    )];
+
+    return {
+      all,
+      // exclude: blacklist never inherits (all is true there, so exclude is
+      // what narrows it); whitelist is exact-only by hostMatchesSite, so a
+      // subdomain entry cannot be widened to its parent
+      exclude: all && this.mode === 'blacklist' ? hosts(this.blacklist) : [],
+      include: !all && this.mode === 'whitelist' ? hosts(this.whitelist) : []
+    };
+  }
+
+  /**
+   * Keep the registered content scripts exactly as wide as the header layer's
+   * scope. The no-op script is always registered so per-tab or late changes
+   * can flip scope back on without re-navigating; unregistering everything
+   * would leave already-loaded pages without the coordinator forever.
+   */
+  async applyInjectionScope() {
+    const noop = 'inject/no-op.js';
+    try {
+      await browser.scripting.unregisterContentScripts();
+    }
+    catch (e) {
+      console.error('[Unga Bunga UA] unregistering content scripts failed:', e);
+    }
+
+    const { all, include, exclude } = this.injectionScope();
+    const patterns = list => list.map(host => `*://*.${host}/*`);
+    const { fingerprintNoise } = await browser.storage.local.get(['fingerprintNoise']);
+
+    const props = {
+      allFrames: true,
+      matchOriginAsFallback: true,
+      runAt: 'document_start',
+      world: 'ISOLATED'
+    };
+
+    // The MAIN-world scripts run in the page where they define the navigator
+    // accessors (Firefox 128+); the ISOLATED script coordinates them. Ids are
+    // per script: the API rejects duplicate ids in one call.
+    const scripts = [{
+      ...props,
+      id: 'unga-bunga-spoof',
+      js: ['inject/main.js', 'inject/override.js'],
+      world: 'MAIN'
+    }, {
+      ...props,
+      id: 'unga-bunga-coordinator',
+      js: ['inject/isolated.js']
+    }];
+
+    if (all || include.length) {
+      scripts[0].matches = all ? ['*://*/*'] : patterns(include);
+      scripts[1].matches = scripts[0].matches;
+      if (all && exclude.length) {
+        scripts[0].excludeMatches = patterns(exclude);
+        scripts[1].excludeMatches = scripts[0].excludeMatches;
+      }
+      // Optional canvas/audio/webgl noise, off by default; registered natively
+      // (MAIN world) now that the inline injector is gone.
+      if (fingerprintNoise === true) {
+        scripts.push({
+          ...props,
+          js: ['inject/fingerprint-noise.js'],
+          world: 'MAIN',
+          id: 'unga-bunga-noise',
+          matches: scripts[0].matches,
+          ...(scripts[0].excludeMatches ? { excludeMatches: scripts[0].excludeMatches } : {})
+        });
+      }
+    }
+    else {
+      // The placeholder must still carry a matches list (the API requires
+      // one); all-urls is harmless for a script that does nothing.
+      scripts.forEach(script => {
+        script.js = [noop];
+        script.world = 'ISOLATED';
+        script.matches = ['*://*/*'];
+      });
+    }
+
+    // Firefox validates at call time and rejects the whole batch; wipe any
+    // partial registration and retry with the widest scope. Over-injection is
+    // harmless (payloads decide what actually spoofs), under-injection is not:
+    // a spoofed page must never run without the coordinator.
+    try {
+      await browser.scripting.registerContentScripts(scripts);
+    }
+    catch (e) {
+      console.error('[Unga Bunga UA] content script registration failed:', e);
+      try {
+        const safe = scripts.map(script => ({
+          ...script,
+          matches: ['*://*/*']
+        }));
+        delete safe[0].excludeMatches;
+        delete safe[1].excludeMatches;
+        await browser.scripting.registerContentScripts(safe);
+      }
+      catch (err) {
+        console.error('[Unga Bunga UA] injection is unusable:', err);
+      }
+    }
+  }
+
+  /**
+   * Re-register the content scripts whenever anything that moves the scope
+   * changes. Error-tolerant: a rejected write must not stop the popup's own
+   * save, and a failed registration leaves the previous rules in place.
+   */
+  setupInjectionManager() {
+    browser.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local') {
+        return;
+      }
+      const scopeKeys = [
+        'isEnabled', 'mode', 'whitelist', 'blacklist', 'currentUserAgent', 'strictParity', 'fingerprintNoise'
+      ];
+      if (scopeKeys.some(key => key in changes)) {
+        Promise.resolve().then(async () => {
+          await this.loadSettings();
+          await this.applyInjectionScope();
+        }).catch(e => console.error('[Unga Bunga UA] injection scope update failed:', e));
+      }
+    });
   }
 
   hostMatchesSite(hostname, site) {
@@ -925,17 +1207,35 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'get-port-string':
       // Return UA config only when spoofing is enabled and should apply.
-      const senderUrl = (sender && sender.url) || (sender.tab && sender.tab.url) || '';
-      if (spoofer.isEnabled && spoofer.currentParsedUA && senderUrl && spoofer.shouldApplyUserAgent(senderUrl)) {
-        const uaObject = Object.assign({}, spoofer.currentParsedUA, {
-          type: 'user',
-          strictParity: spoofer.strictParity
-        });
-        sendResponse(encodeURIComponent(JSON.stringify(uaObject)));
-      } else {
-        sendResponse('');
+      // Mirrors the Server-Timing marker exactly (same payload, same scope
+      // check) so a frame resolved through this path spoofs the same data as
+      // one resolved through the response header.
+      {
+        const senderUrl = (sender && sender.url) || (sender.tab && sender.tab.url) || '';
+        const topUrl = (sender.tab && sender.tab.url) || senderUrl;
+        // about:blank and srcdoc frames resolve through the top-level URL, so
+        // the tab-level decision is the one that must match the header layer.
+        const allowed = topUrl ? spoofer.shouldApplyUserAgent(topUrl) : false;
+        if (spoofer.isEnabled && spoofer.currentParsedUA && allowed) {
+          sendResponse(spoofer.serverTimingPayload());
+        } else if (spoofer.isEnabled && spoofer.currentUserAgent) {
+          // Settings may still be loading on a cold background start; wait for
+          // init instead of answering from half-loaded state. This is the fix
+          // for the "passes only after reloading the page" report in #4.
+          spoofer.initPromise.then(() => {
+            if (spoofer.currentParsedUA && spoofer.shouldApplyUserAgent(topUrl)) {
+              sendResponse(spoofer.serverTimingPayload());
+            }
+            else {
+              sendResponse('');
+            }
+          });
+        } else {
+          sendResponse('');
+        }
       }
-      break;
+      // the response may be deferred behind initPromise; keep the channel open
+      return true;
 
     case 'setStrictParity':
       spoofer.setStrictParity(message.enabled).then(strictParity => sendResponse({ strictParity }));

@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Unga Bunga User-Agent",
-  "version": "4.6.0",
+  "version": "5.0.0",
   "description": "A powerful and user-friendly extension for advanced user agent spoofing",
   "icons": {
     "16": "icons/icon-16.png",
@@ -13,6 +13,7 @@
   "permissions": [
     "webRequest",
     "webRequestBlocking",
+    "scripting",
     "storage",
     "tabs",
     "activeTab",
@@ -22,6 +23,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "{c0b69982-a7be-46f5-912d-009892fc67e6}",
+      "strict_min_version": "128.0",
       "data_collection_permissions": {
         "required": ["none"]
       }
@@ -40,21 +42,5 @@
       "32": "icons/icon-32.png",
       "48": "icons/icon-48.png"
     }
-  },
-  
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_start",
-      "all_frames": true,
-      "match_about_blank": true
-    }
-  ],
-  
-  "web_accessible_resources": [
-    "inject/main.js",
-    "inject/override.js",
-    "inject/fingerprint-noise.js"
-  ]
+  }
 }
