@@ -105,6 +105,23 @@ jobs:
           git commit -m "build: add unsigned xpi for ${{ steps.version_check.outputs.version }}"
           git push
 
+      - name: Extract the release notes section
+        if: steps.version_check.outputs.version_changed == 'true'
+        shell: bash
+        run: |
+          # the release body carries only this version's section from
+          # RELEASE_NOTES.md; a missing section still yields a usable body
+          awk -v ver="v${{ steps.version_check.outputs.version }}" '
+            $0 == ("## " ver) {flag = 1; next}
+            /^## v/ && flag {flag = 0}
+            flag {print}
+          ' RELEASE_NOTES.md > release-body.md
+          if [ ! -s release-body.md ]; then
+            echo "See RELEASE_NOTES.md for the changelog." > release-body.md
+          fi
+          echo "" >> release-body.md
+          echo "Full Changelog: ${{ steps.version_check.outputs.changelog_range }}" >> release-body.md
+
       - name: Create or update release (published)
         if: steps.version_check.outputs.version_changed == 'true'
         uses: ncipollo/release-action@v1
@@ -113,12 +130,7 @@ jobs:
           name: release ${{ steps.version_check.outputs.version }}
           allowUpdates: true
           draft: false
-          body: |
-            Changelog
-
-            - update notes here
-
-            Full Changelog: ${{ steps.version_check.outputs.changelog_range }}
+          bodyFile: release-body.md
 
   upload-signed-to-latest-release:
     runs-on: ubuntu-latest
