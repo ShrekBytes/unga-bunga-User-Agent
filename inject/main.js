@@ -105,9 +105,11 @@
     }
 
     // Fully cached documents may never fire the webRequest events the async
-    // fallback listens on, so those need a different resolution path.
+    // fallback listens on, so those need a different resolution path. The
+    // shipped spec value is "cache"; "cache-storage" was an earlier draft
+    // spelling, so accept both rather than bet on one.
     for (const entry of performance.getEntriesByType('navigation')) {
-      if (entry.deliveryType === 'cache-storage') {
+      if (entry.deliveryType === 'cache' || entry.deliveryType === 'cache-storage') {
         port.dataset.cached = true;
         break;
       }

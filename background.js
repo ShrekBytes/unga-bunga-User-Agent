@@ -634,27 +634,27 @@ class UserAgentSpoofer {
   }
 
   /**
-   * The encoded navigator config, delivered to inject/main.js through the
-   * response's Server-Timing header. Carries the scope mirrors (protected) so
-   * every layer evaluates the same URL rules.
+   * The navigator config every delivery channel shares: the Server-Timing
+   * header wraps it, the async fallback answers with it. Carries the scope
+   * mirrors (protected) so every layer evaluates the same URL rules. One
+   * builder, so the channels can never drift apart byte-for-byte.
    */
-  serverTimingHeader() {
-    const uaObject = Object.assign({}, this.currentParsedUA, {
+  spoofPayload() {
+    return Object.assign({}, this.currentParsedUA, {
       type: 'user',
       strictParity: this.strictParity,
       protected: []
     });
-    return `uasw-json-data;dur=0;desc="${encodeURIComponent(JSON.stringify(uaObject))}"`;
+  }
+
+  /** spoofPayload() wrapped in the Server-Timing header for inject/main.js. */
+  serverTimingHeader() {
+    return `uasw-json-data;dur=0;desc="${encodeURIComponent(JSON.stringify(this.spoofPayload()))}"`;
   }
 
   /** The exact payload inside serverTimingHeader(), for the async fallback. */
   serverTimingPayload() {
-    const uaObject = Object.assign({}, this.currentParsedUA, {
-      type: 'user',
-      strictParity: this.strictParity,
-      protected: []
-    });
-    return encodeURIComponent(JSON.stringify(uaObject));
+    return encodeURIComponent(JSON.stringify(this.spoofPayload()));
   }
 
   /**

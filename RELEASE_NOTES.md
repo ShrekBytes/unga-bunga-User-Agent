@@ -18,9 +18,10 @@
   synchronously from their parent frame, with an async fallback through the
   background script for cross-origin frames and cached pages. Previously these
   frames could keep the real navigator while the tab's headers were spoofed.
-- The `Server-Timing` marker that carries the spoof payload is now scrubbed
-  from the performance timeline after being read, so pages can no longer read
-  the injected configuration back.
+- The `Server-Timing` marker that carries the spoof payload is scrubbed from
+  the performance timeline in the same tick the injected scripts read it, so
+  page scripts running after them can no longer read the injected
+  configuration back.
 - Navigator overrides are defined on the navigator prototype with native-shaped
   getters, matching how the real browser exposes them. Instance-level getters
   (which `Object.getOwnPropertyNames(navigator)` reveals) and `toString`

@@ -11,9 +11,11 @@
 
 /* global cloneInto */
 
-const own = self.port = document.getElementById('uas-port');
+// the port element this frame's own MAIN world created (null in sandboxed
+// frames); distinct from `port`, which may later point at an ancestor's port
+const mainPort = self.port = document.getElementById('uas-port');
 
-let port = own;
+let port = mainPort;
 
 const id = (Math.random() + 1).toString(36).substring(7);
 
@@ -122,11 +124,11 @@ if (port && port.dataset) {
       }
     }
     catch (e) { // cross-origin frame or when top-level is from service worker
-      console.info('[Unga Bunga UA] user-agent leaked, using async method:', location.href, own && own.dataset.cached);
+      console.info('[Unga Bunga UA] user-agent leaked, using async method:', location.href, mainPort && mainPort.dataset.cached);
 
       browser.runtime.sendMessage({
         action: 'get-port-string',
-        cached: !!own && own.dataset.cached === 'true',
+        cached: !!mainPort && mainPort.dataset.cached === 'true',
         top: self.top === self
       }, str => {
         if (!str) {
@@ -136,8 +138,8 @@ if (port && port.dataset) {
         // own port, or the nearest reachable same-origin ancestor's port.
         // Throwing here is what used to silently drop the payload and leak
         // the real UA
-        if (own && own.dataset) {
-          port = own;
+        if (mainPort && mainPort.dataset) {
+          port = mainPort;
         }
         if (port && port.dataset) {
           port.dataset.str = str;
