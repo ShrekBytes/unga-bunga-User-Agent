@@ -259,6 +259,71 @@
     }
   };
 
+  // Top-frame hook for frames no content script can reach. A page that does
+  // `document.createElement('iframe')` (+ sandbox, or src="javascript:") and
+  // reads `frame.contentWindow.navigator` in the same tick creates an opaque
+  // or inherited-origin document where registerContentScripts never injects —
+  // no script exists there, so not even the async fallback can fire (issue #4,
+  // live probe fua/fav). Wrapping the frame-element accessors means the very
+  // first contentWindow/contentDocument access spoofs that navigator from the
+  // already-spoofed top one, synchronously, before the page can read it.
+  // Accessors on HTMLIFrameElement.prototype fire for every iframe, present
+  // and future, without touching the page's own Window prototypes.
+  const hookIframes = () => {
+    if (!self.HTMLIFrameElement || self.top !== self || port.dataset.disabled === 'true') {
+      return;
+    }
+    // module-private bookkeeping; page-visible window expandos would be a
+    // fingerprinting signal
+    const spoofed = new WeakSet();
+    const spoofFromTop = w => {
+      if (!w || !w.navigator || spoofed.has(w)) {
+        return;
+      }
+      spoofed.add(w);
+      try {
+        // spoof the top navigator first so this frame's accessors can simply
+        // forward to the same payload (skipped when the document_start apply
+        // has already run)
+        if (port.dataset.applied !== 'true') {
+          override(navigator, 'iframe');
+        }
+        override(w.navigator, 'iframe');
+      }
+      catch (e) {
+        // cross-origin frames throw on write; this hook must never turn an
+        // ordinary contentWindow read into an observable exception
+      }
+    };
+    for (const key of ['contentWindow', 'contentDocument']) {
+      const d = Object.getOwnPropertyDescriptor(self.HTMLIFrameElement.prototype, key);
+      if (!d || !d.get) {
+        continue;
+      }
+      try {
+        Object.defineProperty(self.HTMLIFrameElement.prototype, key, {
+          configurable: true,
+          enumerable: d.enumerable,
+          set: d.set,
+          get: nativeGetter(key, function(el) {
+            // nativeGetter hands us the element as an argument; the frame's
+            // Window (contentWindow) or Document (contentDocument) both end
+            // at the same window, which is what needs spoofing
+            const value = d.get.call(el);
+            try {
+              spoofFromTop(value && value.navigator ? value : value && value.defaultView);
+            }
+            catch (e) {}
+            return value;
+          })
+        });
+      }
+      catch (e) {
+        console.info('[Unga Bunga UA] iframe hook failed for', key, e);
+      }
+    }
+  };
+
   const override = (nav, reason) => {
     if (port.dataset.ready !== 'true') {
       port.prepare();
@@ -282,7 +347,10 @@
         // keep the exact same mobileness regex as the header layer
         const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
 
-        const v = new class NavigatorUAData {
+        // one instance per document: real Chrome's accessor is [SameObject],
+        // and re-running the override for a hooked frame must not swap the
+        // object out from under a page that compared two reads
+        const v = port.uad || new class NavigatorUAData {
           #d;
           constructor(d) {
             this.#d = d;
@@ -361,6 +429,7 @@
           wow64: false,
           uaFullVersion: browserFullVersionOf(p, ua)
         });
+        port.uad = v;
 
         // real Chrome reports "[object NavigatorUAData]"
         Object.defineProperty(Object.getPrototypeOf(v), Symbol.toStringTag, {
@@ -386,11 +455,13 @@
         // natively.
         port.prefs.userAgentData = '[delete]';
       }
-      delete port.prefs.userAgentDataBuilder;
 
       // Override all navigator properties
       for (const key of Object.keys(port.prefs)) {
-        if (key === 'type' || key === 'strictParity') {
+        if (key === 'type' || key === 'strictParity' || key === 'userAgentDataBuilder') {
+          // the builder stays on the prefs: the override re-runs for every
+          // navigator the iframe hook spoofs, and it needs the builder each
+          // time to (re)build userAgentData for that frame
           continue;
         }
         if (port.prefs[key] === '[delete]') {
@@ -412,18 +483,39 @@
   };
 
   const port = document.getElementById('uas-port');
-  port.addEventListener('override', e => {
-    if (e.detail.id === port.dataset.id) {
-      override(navigator, e.detail.reason);
+  if (port) {
+    // Only the top frame hooks iframe element accessors; subframes spoof their
+    // own navigators directly and the port lives in the top document anyway.
+    if (self.top === self && port.dataset.disabled !== 'true') {
+      hookIframes();
     }
-    else {
-      try {
-        const win = port.ogs.get(e.detail.id);
-        override(win.navigator, e.detail.reason);
-      }
-      catch (err) {
-        console.info('[Unga Bunga UA] [Failed to override]', err);
-      }
+
+    // The Server-Timing payload rides the document's own response header, so
+    // it is readable right here at document_start. Applying immediately (not
+    // only on the coordinator's event) keeps UA, appVersion, platform and
+    // vendor atomic before any page script runs; pages that build iframes and
+    // read navigator right away otherwise observe UA spoofed while
+    // platform/vendor are still real (matrix.json early reads).
+    if (port.dataset.disabled !== 'true' && port.dataset.str) {
+      override(navigator, 'normal');
+      // tells isolated.js the payload is already applied, so its coordinator
+      // event (normal/parent/async) does not re-run the override needlessly
+      port.dataset.applied = 'true';
     }
-  });
+
+    port.addEventListener('override', e => {
+      if (e.detail.id === port.dataset.id) {
+        override(navigator, e.detail.reason);
+      }
+      else {
+        try {
+          const win = port.ogs.get(e.detail.id);
+          override(win.navigator, e.detail.reason);
+        }
+        catch (err) {
+          console.info('[Unga Bunga UA] [Failed to override]', err);
+        }
+      }
+    });
+  }
 }

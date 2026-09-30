@@ -29,7 +29,9 @@ function loadHeaderLayer() {
 // Load the MAIN-world override in a bare sandbox: it is written as a top-level
 // block that reads `port` from getElementById, so a stub with the same surface
 // (getElementById, addEventListener) is enough to run it and capture `override`.
-function loadOverrideLayer() {
+// `iframeElement` stands in for HTMLIFrameElement so the top-frame iframe hook
+// can be exercised: whatever prototype it carries gets the hooked accessors.
+function loadOverrideLayer({ iframeElement = undefined, disabled = false } = {}) {
   const subscribed = [];
   const port = {
     dataset: {
@@ -51,7 +53,8 @@ function loadOverrideLayer() {
         type: 'user',
         strictParity: false
       })),
-      ready: 'false'
+      ready: 'false',
+      ...(disabled ? { disabled: 'true' } : {})
     },
     addEventListener(name, handler) {
       subscribed.push({ name, handler });
@@ -68,20 +71,46 @@ function loadOverrideLayer() {
 
   // navigator is passed in as a parameter: Node >= 21 ships its own global
   // navigator, which would otherwise swallow the prototype accessors.
-  const sandbox = new Function('document', 'port', 'console', 'subscribed', 'navigator', `
+  const sandbox = new Function(
+    'document', 'port', 'console', 'subscribed', 'navigator', 'iframeElement', `
     const self = {
-      HTMLIFrameElement: undefined
+      HTMLIFrameElement: iframeElement
     };
+    self.top = self; // top-frame perspective, as in the frame the hook runs in
     ${read('inject/override.js')}
     return { events: subscribed };
   `);
-  const { events } = sandbox(document, port, console, subscribed, navigator);
+  const { events } = sandbox(document, port, console, subscribed, navigator, iframeElement);
 
   return {
+    port,
     navigator,
     navProto,
     dispatch: () => events.find(e => e.name === 'override').handler({ detail: { id: 'x', reason: 'test' } })
   };
+}
+
+// A stand-in for the live page's probe: createElement('iframe') + sandbox +
+// src="javascript:", then a synchronous contentWindow read (issue #4 fua/fav).
+function fakeFrame() {
+  const navProto = {};
+  const frameWin = { navigator: Object.create(navProto) };
+  class FakeHTMLIFrameElement {}
+  Object.defineProperty(FakeHTMLIFrameElement.prototype, 'contentWindow', {
+    configurable: true,
+    enumerable: true,
+    get() {
+      return frameWin;
+    }
+  });
+  Object.defineProperty(FakeHTMLIFrameElement.prototype, 'contentDocument', {
+    configurable: true,
+    enumerable: true,
+    get() {
+      return { defaultView: frameWin };
+    }
+  });
+  return { frameWin, navProto, FakeHTMLIFrameElement };
 }
 
 test('header layer and navigator layer agree on the brands list', () => {
@@ -139,4 +168,74 @@ test('override.js places accessors on the prototype, not the instance', () => {
   // ...and the prototype accessors must answer with the spoofed values.
   assert.strictEqual(layer.navigator.userAgent, UA.chrome155);
   assert.strictEqual(layer.navigator.userAgentData.brands[1].version, '155');
+});
+
+test('override.js applies the payload directly at document_start, atomically', () => {
+  const layer = loadOverrideLayer();
+  // no dispatch: the mere load must spoof when the Server-Timing payload is
+  // already on the port, or a page reading between the two registered scripts
+  // sees UA spoofed but platform/vendor still real (matrix.json early reads)
+  assert.strictEqual(layer.navigator.userAgent, UA.chrome155);
+  assert.strictEqual(layer.navigator.appVersion, '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36');
+  assert.strictEqual(layer.navigator.platform, 'Win32');
+  assert.strictEqual(layer.navigator.vendor, 'Google Inc.');
+  assert.strictEqual(layer.port.dataset.applied, 'true');
+});
+
+test('a re-run of the override does not swap the userAgentData object', () => {
+  const layer = loadOverrideLayer();
+  layer.dispatch();
+  const first = layer.navigator.userAgentData;
+  layer.dispatch();
+  // [SameObject]: real Chrome hands out one instance per realm; a swapped
+  // object would betray the spoof to any page comparing two reads
+  assert.strictEqual(layer.navigator.userAgentData, first);
+});
+
+test('the iframe hook spoofs script-created frames on first contentWindow access', () => {
+  const { frameWin, navProto, FakeHTMLIFrameElement } = fakeFrame();
+  const layer = loadOverrideLayer({ iframeElement: FakeHTMLIFrameElement });
+
+  // the page's own probe, same tick as the live one: append + read
+  const el = new FakeHTMLIFrameElement();
+  const seen = el.contentWindow.navigator.userAgent;
+
+  // sandboxed/opaque about:blank frame: no content script ever runs there,
+  // so this synchronous first read is the only line of defense
+  assert.strictEqual(seen, UA.chrome155);
+  assert.strictEqual(el.contentWindow.navigator.appVersion, '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36');
+  assert.strictEqual(el.contentWindow.navigator.platform, 'Win32');
+  assert.strictEqual(el.contentWindow.navigator.vendor, 'Google Inc.');
+  // on the frame's prototype, not the instance, and the same userAgentData
+  // object the top realm already exposes
+  assert.strictEqual(Object.getOwnPropertyNames(frameWin.navigator).length, 0);
+  assert.strictEqual(el.contentWindow.navigator.userAgentData, layer.navigator.userAgentData);
+  assert.ok(navProto !== layer.navProto);
+});
+
+test('contentDocument resolves through defaultView to the same window', () => {
+  const { FakeHTMLIFrameElement } = fakeFrame();
+  const layer = loadOverrideLayer({ iframeElement: FakeHTMLIFrameElement });
+  const el = new FakeHTMLIFrameElement();
+  assert.strictEqual(el.contentDocument.defaultView.navigator.userAgent, UA.chrome155);
+  assert.strictEqual(layer.navigator.userAgent, UA.chrome155);
+});
+
+test('the hook is a no-op when the scope is disabled on this tab', () => {
+  const { frameWin, FakeHTMLIFrameElement } = fakeFrame();
+  const layer = loadOverrideLayer({ iframeElement: FakeHTMLIFrameElement, disabled: true });
+  const el = new FakeHTMLIFrameElement();
+  // no spoofing was applied anywhere: the value falls through untouched
+  assert.strictEqual(el.contentWindow.navigator.userAgent, undefined);
+  assert.strictEqual(layer.port.dataset.applied, undefined);
+});
+
+test('the hook never throws into the page and returns the native value', () => {
+  const { FakeHTMLIFrameElement } = fakeFrame();
+  const layer = loadOverrideLayer({ iframeElement: FakeHTMLIFrameElement });
+  const el = new FakeHTMLIFrameElement();
+  // repeated reads stay stable and keep returning the frame's window object
+  assert.strictEqual(el.contentWindow, el.contentWindow);
+  assert.ok(el.contentWindow && typeof el.contentWindow.navigator === 'object');
+  assert.strictEqual(layer.navigator.userAgent, UA.chrome155);
 });

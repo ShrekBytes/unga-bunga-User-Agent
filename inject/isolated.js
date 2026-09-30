@@ -19,21 +19,22 @@ let port = mainPort;
 
 const id = (Math.random() + 1).toString(36).substring(7);
 
+const report = () => {
+  if (window === window.top && port.dataset.str) {
+    browser.runtime.sendMessage({
+      action: 'tab-spoofing',
+      str: port.dataset.str,
+      type: port.dataset.type
+    });
+  }
+};
+
 const override = reason => {
   const detail = typeof cloneInto === 'undefined' ? {id, reason} : cloneInto({id, reason}, self);
   port.dispatchEvent(new CustomEvent('override', {
     detail
   }));
-
-  if (window === window.top) {
-    if (port.dataset.str) {
-      browser.runtime.sendMessage({
-        action: 'tab-spoofing',
-        str: port.dataset.str,
-        type: port.dataset.type
-      });
-    }
-  }
+  report();
 };
 
 if (port) {
@@ -89,7 +90,18 @@ if (port && port.dataset) {
     }
   }
   else if (port.dataset.str) {
-    override('normal');
+    // override.js already applied the payload directly at document_start; only
+    // fall back to the event when that has not happened (payload arrived via
+    // parent/async after the MAIN-world scripts ran). The top-frame state is
+    // still reported so the badge stays correct. A sandboxed frame reaching
+    // this branch has port pointing at an ANCESTOR's port, so it always
+    // dispatches: the listener resolves this frame's window via port.ogs.
+    if (port === mainPort && port.dataset.applied === 'true') {
+      report();
+    }
+    else {
+      override('normal');
+    }
   }
   // sub-frames and cross-origin frames
   else {
@@ -103,6 +115,10 @@ if (port && port.dataset) {
           else {
             if ('str' in p.port.dataset) {
               port.dataset.str = p.port.dataset.str;
+              // always dispatch: the event carries THIS frame's id and the
+              // override listener resolves it through port.ogs; only the
+              // port owner's own apply is suppressed by dataset.applied
+              port.dataset.applied = 'true';
               override('parent');
             }
           }
@@ -143,6 +159,7 @@ if (port && port.dataset) {
         }
         if (port && port.dataset) {
           port.dataset.str = str;
+          port.dataset.applied = 'true';
           override('async');
         }
       });

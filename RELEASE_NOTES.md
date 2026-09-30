@@ -18,6 +18,17 @@
   synchronously from their parent frame, with an async fallback through the
   background script for cross-origin frames and cached pages. Previously these
   frames could keep the real navigator while the tab's headers were spoofed.
+- Frames a page creates itself (`createElement('iframe')`, with or without
+  `sandbox`) are spoofed on the spot: the top document wraps the frame
+  element's `contentWindow`/`contentDocument` accessors, so the first read of
+  the frame's navigator — even from a script-created `about:blank` or
+  `javascript:` document where no content script can ever run — returns the
+  spoofed values. This is what the aggressive iframe probes on
+  webbrowsertools.com measure.
+- The navigator override applies directly at document_start when the spoof
+  payload is already available, so `userAgent`, `appVersion`, `platform` and
+  `vendor` become consistent in one step; pages that read the navigator mid-
+  load can no longer observe a half-applied override.
 - The `Server-Timing` marker that carries the spoof payload is scrubbed from
   the performance timeline in the same tick the injected scripts read it, so
   page scripts running after them can no longer read the injected
