@@ -1,22 +1,24 @@
 # Unga Bunga User-Agent
 
-A Firefox extension for user agent spoofing with always up-to-date user agents and some nice features
+A Firefox extension for user agent spoofing, with always up-to-date user agents and some nice features.
 
-![Extension Badge](icons/icon.svg) [![License](https://img.shields.io/badge/License-GPL%20v3-green?style=for-the-badge)](LICENSE)
+![Extension icon](icons/icon.svg) [![License](https://img.shields.io/badge/License-GPL%20v3-green?style=for-the-badge)](LICENSE)
 [![Firefox](https://img.shields.io/badge/Firefox-Add--on-orange?style=for-the-badge&logo=firefox)](https://addons.mozilla.org/firefox/addon/unga-bunga-user-agent/)
 
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Features](#-features)
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Usage Guide](#-usage-guide)
-- [Advanced Features](#-advanced-features)
-- [Badge Indicators](#-badge-indicators)
-- [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Usage Guide](#usage-guide)
+- [Site Modes](#site-modes)
+- [Badge Indicators](#badge-indicators)
+- [Updating User Agents](#updating-user-agents)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [Acknowledgments](#acknowledgments)
+- [License](#license)
 
 
 ## ✨ Features
@@ -27,38 +29,36 @@ A Firefox extension for user agent spoofing with always up-to-date user agents a
   <img src="screenshots/3.jpg" height="456px" />
 </p>
 
-### 🎯 Core Functionality
+### Core Functionality
 
-- **Preference**: Can select devices, browsers - (all, one, multi category)
-- **Multiple Modes**: All sites, Whitelist, or Blacklist operation
-- **Custom User Agents**: Add your own user agent strings and can add to lists
-- **Smart Random**: Intelligent user agent selection based on preferences
-- **Auto-Random**: Automatic user agent rotation at set intervals from the selected preferences
+- **Filters**: select devices and browsers individually, by category, or all at once
+- **Modes**: apply to all sites, a whitelist, or a blacklist
+- **Custom User Agents**: add your own strings and keep them in a list
+- **Smart Random**: picks a user agent that matches your filters
+- **Auto Smart Random**: rotates the user agent on an interval
 
-### ⚠️ Scope & Limitations
+### Scope & Limitations
 
-- This extension aims to provide consistent user-agent spoofing across common page contexts.
-- It does **not** claim full anti-fingerprinting or undetectability.
-- Some browser/engine/OS traits and advanced fingerprinting vectors cannot be fully controlled via WebExtension APIs.
+- Aims to provide consistent user-agent spoofing across common page contexts.
+- Does **not** claim full anti-fingerprinting or undetectability. Some browser, engine and OS traits cannot be reached through WebExtension APIs.
 - By default, strict parity avoids exposing `navigator.userAgentData` on engines that do not natively provide it.
 
-### 🎨 Modern Interface
+### Modern Interface
 
-- **Clean, Minimal Design**: Modern dark theme with intuitive controls
-- **Responsive Layout**: Optimized for all screen sizes(desktop, mobile)
-- **Visual Feedback**: Toast notifications and status indicators
+- **Clean, minimal design**: dark theme with intuitive controls
+- **Responsive layout**: desktop and mobile
+- **Visual feedback**: toast notifications and status indicators
 
 
-## 📦 Installation
+## Installation
 
-### From Firefox Add-ons Store (Recommended)
+### From Firefox Add-ons (recommended)
 
-1. Visit the Firefox Add-ons store
-2. Search for "Unga Bunga User-Agent"
-3. Click "Add to Firefox"
-4. Confirm the installation
+1. Visit the [Firefox Add-ons page](https://addons.mozilla.org/firefox/addon/unga-bunga-user-agent/)
+2. Click "Add to Firefox"
+3. Confirm the installation
 
-### Manual Installation (Developer)
+### Manual installation (developer)
 
 1. Download the extension files
 2. Open Firefox and go to `about:debugging`
@@ -66,146 +66,125 @@ A Firefox extension for user agent spoofing with always up-to-date user agents a
 4. Select the `manifest.json` file
 
 
-## 🚀 Quick Start
+## Quick Start
 
-1. **Enable the Extension**
-
-   - Click the extension icon in your toolbar
-   - Toggle the "Enabled" switch to ON
-
-2. **Choose a User Agent**
-
-   - Select from the filtered list
-   - Or use "Random UA" for automatic selection
-   - Or use "Smart Random" for intelligent selection
-
-3. **Apply Changes**
-   - Your user agent is now active
-   - Check the badge color for status confirmation
+1. **Enable the extension** — click the toolbar icon and switch "Enabled" on.
+2. **Choose a user agent** — pick from the filtered list, or use "Random UA" or "Smart Random".
+3. **Check the badge** — the icon colour confirms the active mode.
 
 ![Quick Start](screenshots/quick.png)
 
 
-## 📖 Usage Guide
+## Usage Guide
 
 ### Basic Controls
 
-#### Current User Agent Section
-
-- **Text Area**: View and edit the current user agent string
-- **Apply Button**: Apply the edited user agent
-- **Random UA**: Select a random user agent from all available
-- **Reset Default**: Return to your browser's default user agent
+- **Text area**: view and edit the current user agent string
+- **Apply**: apply the edited string
+- **Random UA**: pick a random user agent from all available
+- **Reset Default**: return to your browser's default user agent
 
 ![Basic Controls](screenshots/hero.png)
 
-#### Preferences Section
-> You can choose multiple, all, one, as per your need
+The list below the text area shows what your filters matched, and how many user agents exist in total.
 
-- **Device Filter**: Choose Android, iPhone, iPad, Linux, Mac, or Windows
-- **Browser Filter**: Select Chrome, Firefox, Edge, Opera, Safari, or Vivaldi
-- **Source Filter**: Choose from All, Custom, Latest, or Most Common user agents
-- **Smart Random**: Intelligent selection based on your preferences
+![User agent list](screenshots/list.png)
+
+### Preferences
+
+Pick any combination of filters — all, one, or several per category.
+
+- **Device**: Android, iPhone, iPad, Linux, Mac, or Windows
+- **Browser**: Chrome, Firefox, Edge, Opera, Safari, or Vivaldi
+- **Source**: All, Custom, Latest, or Most Common
+- **Smart Random**: pick a random user agent from the filtered results
 
 ![Preferences](screenshots/preferences.png)
 
 ### Auto Smart Random
 
-- **Toggle**: Enable/disable automatic user agent rotation
-- **Interval**: Set rotation time (1-60 minutes)
-- **Smart Selection**: Uses your device and browser preferences
+- **Toggle**: turn automatic rotation on or off
+- **Interval**: 1-60 minutes
+- **Selection**: draws from your device and browser filters
 
-![Auto Random](screenshots/smart.png)
+![Auto Smart Random](screenshots/smart.png)
 
 ### Custom User Agents
 
-- **Add Custom**: Enter your own user agent strings
-- **Remove**: Delete custom user agents with the × button
-- **Persistent**: Custom agents are saved between sessions
+- **Add**: enter your own user agent strings
+- **Remove**: delete one with the × button
+- **Persistent**: saved between sessions
 
 ![Custom User Agents](screenshots/custom.png)
 
 
-## 🔧 Advanced Features
+## Site Modes
 
-### Site-Specific Control
+Click "Advanced Options" in the popup to reach these.
 
-Click "Advanced Options" to access site-specific settings:
+### All Sites (default)
 
-![Modes](screenshots/mode.png)
+The user agent is applied everywhere. No site list to manage.
 
-#### All Sites Mode (Default)
+### Whitelist
 
-- User agent applied to all websites
-- No site list management needed
-- Perfect for general privacy
+The user agent is applied **only** to the sites you list. Every other site uses your real user agent.
 
-#### Whitelist Mode
+### Blacklist
 
-- User agent applied ONLY to specified sites
-- Add sites to the whitelist
-- All other sites use your real user agent
+The user agent is applied everywhere **except** the sites you list.
 
-#### Blacklist Mode
+### Managing the list
 
-- User agent applied to all sites EXCEPT specified ones
-- Add sites to the blacklist
-- Excluded sites use your real user agent
+- **Add**: click "Add Site" and enter a domain, e.g. `example.com`
+- **Remove**: hover over a site and click the × button
+- Changes apply immediately.
 
-### Site Management
-
-- **Add Sites**: Click "Add Site" and enter domain (e.g., `example.com`)
-- **Remove Sites**: Hover over a site and click the × button
-- **Real-time Updates**: Changes apply immediately
-
-![Site Management](screenshots/mode_add.png)
+![Site Modes](screenshots/mode.png)
+![Adding a site](screenshots/mode_add.png)
 
 
-## 🎨 Badge Indicators
+## Badge Indicators
 
-The extension icon shows your current status:
+The toolbar icon colour shows the current state:
 
-| Badge  | Color  | Status    | Description                             |
-| ------ | ------ | --------- | --------------------------------------- |
-| 🔴 OFF | Red    | Disabled  | Extension is turned off                 |
-| 🟢 ALL | Green  | All Sites | Working on all websites                 |
-| 🔵 WL  | Blue   | Whitelist | Working only on whitelisted sites       |
-| 🟣 BL  | Purple | Blacklist | Working on all sites except blacklisted |
+| Badge  | Colour | Meaning                                 |
+| ------ | ------ | --------------------------------------- |
+| 🔴 OFF | Red    | Extension is off                        |
+| 🟢 ALL | Green  | Applied to all sites                    |
+| 🔵 WL  | Blue   | Applied only to whitelisted sites       |
+| 🟣 BL  | Purple | Applied to all sites except blacklisted |
 
 ![Badge Examples](screenshots/badge.png)
 
 
-## 🔄 Update User Agents
+## Updating User Agents
 
-- **Automatic**: User agents are cached for 24 hours
-- **Manual Update**: Click "Update User Agents" to refresh the list
-- **Latest Sources**: Always get the most recent user agent strings
+- **Automatic**: the list is cached for 24 hours
+- **Manual**: click "Update User Agents" to refresh now
 
 ![Update](screenshots/update.png)
 
 
-## 🛠️ Troubleshooting
-
-### Common Issues
+## Troubleshooting
 
 **Badge not showing?**
 
 - Reload the extension
-- Check if the extension is enabled
+- Check that the extension is enabled
 
 **User agent not changing?**
 
 - Ensure the extension is enabled
-- Check if the site is in blacklist/whitelist
+- Check the site against your whitelist or blacklist
 - Try refreshing the page
 
 **Advanced options not visible?**
 
-- Click "Show" next to "Advanced Options"
-- The section is collapsed by default
+- Click "Show" next to "Advanced Options" — the section is collapsed by default
 
 
-## 🤝 Contributing
+## Contributing
 
 Found a bug or have a feature request?
 [Open an issue](https://github.com/ShrekBytes/unga-bunga-User-Agent/issues) or submit a pull request.
@@ -222,14 +201,13 @@ source fetching, the list that gets built from it, and the popup filters. See
 [`tests/`](tests/) for details.
 
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - User agent data from [ShrekBytes/useragents-data](https://github.com/ShrekBytes/useragents-data)
 - Useragents.me
 - [UserAgent-Switcher](https://github.com/ray-lothian/UserAgent-Switcher) by ray-lothian
 
 
-## 📄 License
+## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
-
