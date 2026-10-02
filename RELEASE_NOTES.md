@@ -1,5 +1,56 @@
 # Unga Bunga User-Agent
 
+## v5.1.0
+
+### Service-worker-visible user agent (fixes the remaining #4 failure)
+
+- webbrowsertools.com's `[aggressive] UA Header` method reads the request's
+  `user-agent` header **inside the site's own service worker**. A service worker
+  sees a request before the network layer, so no header rewrite — webRequest or
+  declarativeNetRequest — can reach it, and on Firefox the header is not present
+  in the service worker's fetch event at all. That is why `[normal]
+  navigator.userAgent` and `[aggressive] UA Header` could never agree, and why
+  patching the request header by hand changed nothing.
+- `inject/request-headers.js` (new, MAIN world) attaches the spoofed
+  `user-agent` to the page's own `fetch()` and `XMLHttpRequest` requests, which
+  Firefox *does* expose to a service worker's fetch event. The service worker
+  then reports the spoofed string, and all six detection methods on
+  webbrowsertools.com agree.
+- Same-origin requests only. A service worker's scope is always same-origin, and
+  attaching the header to a cross-origin request would make it preflight — a
+  page-visible behaviour change on servers that do not allow it. The wire value
+  is unaffected either way: the background's `onBeforeSendHeaders` rewrite still
+  runs last and wins.
+- A page that sets its own `user-agent` on an `XMLHttpRequest` keeps it. XHR
+  appends a repeated header rather than replacing it, so injecting over the
+  page's value would have sent "theirs, ours".
+- Verified live on Firefox Developer Edition 158 against
+  webbrowsertools.com/useragent: all six methods, `UA Header` included, report
+  the spoofed string on a fresh visit and after the reported close-and-reopen
+  cycle.
+
+### Registration churn
+
+- `applyInjectionScope()` no longer unregisters and re-registers the content
+  scripts when the live registration already matches the settings. The pair is
+  not atomic, and a document that started loading inside that gap ran without
+  the content scripts for its whole life. A startup with nothing to change now
+  leaves the persisted registration alone.
+
+### Lower minimum version
+
+- `strict_min_version` is 142.0 instead of 144.0, so Firefox 143 is supported
+  again.
+
+### Popup on tablets
+
+- The popup no longer stays a 420px phone-shaped column on a tablet. On a
+  coarse-pointer (touch) viewport wider than 480px it fills the screen, and a
+  viewport narrower than 420px fills instead of overflowing. The desktop popup
+  is untouched: a desktop popup never reports a coarse pointer.
+
+---
+
 ## v5.0.1
 
 ### Iframe hook hardening (follow-up to #4)

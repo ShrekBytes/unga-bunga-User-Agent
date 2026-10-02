@@ -23,7 +23,15 @@ const sourceMatchesAny = new Function(`${read('shared/source-match.js')}\n;retur
 const noop = () => {};
 const event = () => ({ addListener: noop, removeListener: noop });
 
-function stubBrowser(store) {
+function stubBrowser(store, scripting = {}) {
+  // Mirrors what Firefox reports back from getRegisteredContentScripts, so a
+  // test can drive the "already registered, nothing moved" path in
+  // applyInjectionScope instead of always seeing an empty list.
+  const state = {
+    registered: (scripting.registered || []).map(script => ({ ...script })),
+    registerCalls: 0,
+    unregisterCalls: 0
+  };
   return {
     storage: {
       local: {
@@ -41,13 +49,20 @@ function stubBrowser(store) {
     browserAction: { setBadgeText: noop, setBadgeBackgroundColor: noop },
     webRequest: { onBeforeSendHeaders: event(), onHeadersReceived: event() },
     scripting: {
-      getRegisteredContentScripts: async () => [],
-      registerContentScripts: async () => {},
-      unregisterContentScripts: async () => {},
+      getRegisteredContentScripts: async () => state.registered.map(script => ({ ...script })),
+      registerContentScripts: async scripts => {
+        state.registerCalls += 1;
+        state.registered = scripts.map(script => ({ ...script }));
+      },
+      unregisterContentScripts: async () => {
+        state.unregisterCalls += 1;
+        state.registered = [];
+      },
       executeScript: async () => []
     },
     runtime: { onMessage: event(), onInstalled: event(), getURL: p => p },
-    tabs: { query: async () => [], onUpdated: event(), onRemoved: event() }
+    tabs: { query: async () => [], onUpdated: event(), onRemoved: event() },
+    __scripting: state
   };
 }
 
@@ -63,7 +78,7 @@ const NAVIGATOR = { userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:157.0) Gecko/
  * `latest/` directory does and what `synthetic/` does for a category upstream
  * has no template for.
  */
-function loadBackground({ routes = {}, store = {} } = {}) {
+function loadBackground({ routes = {}, store = {}, scripting = {} } = {}) {
   const calls = [];
   const fetchImpl = async url => {
     // Key on "<dir>/<file>.json" so a route table reads the same whether the URL
@@ -74,7 +89,7 @@ function loadBackground({ routes = {}, store = {} } = {}) {
     return Object.prototype.hasOwnProperty.call(routes, key) ? routes[key] : notFound();
   };
 
-  const browser = stubBrowser(store);
+  const browser = stubBrowser(store, scripting);
   const Agent = new Function(
     'UAParser', 'navigator', 'console', ...Object.keys(TIMERS),
     `${read('agent.js')}\n;return Agent;`
@@ -82,13 +97,15 @@ function loadBackground({ routes = {}, store = {} } = {}) {
 
   const exp = new Function(
     'UAParser', 'Agent', 'sourceMatchesAny', 'browser', 'fetch', 'console', ...Object.keys(TIMERS),
-    `${read('background.js')}\n;return { spoofer, UA_FILES, UA_CATEGORIES, UA_LIST_LIMIT, UA_SOURCES, clientHintsHeaders, chBrandListOf, chPlatformOf };`
+    `${read('background.js')}\n;return { spoofer, UserAgentSpoofer, UA_FILES, UA_CATEGORIES, UA_LIST_LIMIT, UA_SOURCES, clientHintsHeaders, chBrandListOf, chPlatformOf };`
   )(UAParser, Agent, sourceMatchesAny, browser, fetchImpl, console, ...Object.values(TIMERS));
 
   return {
     ...exp,
     store,
     calls,
+    /** Records what applyInjectionScope did to the content-script registration. */
+    scripting: browser.__scripting,
     /** Resolves once the spoofer has loaded its settings and registered everything. */
     ready: exp.spoofer.initPromise || Promise.resolve(),
     /** Run the real fetch + build pipeline over the routes, in UA_FILES order. */

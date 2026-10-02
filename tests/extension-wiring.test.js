@@ -81,6 +81,7 @@ test('every dynamically registered injection script exists on disk', () => {
   const files = [...source.matchAll(/'(inject\/[a-z-]+\.js)'/g)].map(m => m[1]);
   assert.ok(files.includes('inject/main.js'), 'the MAIN-world bootstrap must be registered');
   assert.ok(files.includes('inject/override.js'), 'the MAIN-world override must be registered');
+  assert.ok(files.includes('inject/request-headers.js'), 'the MAIN-world request patch must be registered');
   assert.ok(files.includes('inject/isolated.js'), 'the ISOLATED coordinator must be registered');
   assert.ok(files.includes('inject/no-op.js'), 'the disabled-scope placeholder must be registered');
   for (const file of [...new Set(files)]) {
@@ -90,10 +91,14 @@ test('every dynamically registered injection script exists on disk', () => {
 
 test('the injection scripts are registered with world MAIN where required', () => {
   const source = read('background.js');
-  const mainBlock = source.match(/id: 'unga-bunga-spoof',\s*js: \['inject\/main\.js', 'inject\/override\.js'\],\s*world: 'MAIN'/);
+  const mainBlock = source.match(/id: 'unga-bunga-spoof',\s*js: \['inject\/main\.js', 'inject\/override\.js', 'inject\/request-headers\.js'\],\s*world: 'MAIN'/);
   assert.ok(mainBlock, 'the spoof scripts must register into the MAIN world, or CSP and frames break spoofing');
   const isolatedBlock = source.match(/id: 'unga-bunga-coordinator',\s*js: \['inject\/isolated\.js'\]/);
   assert.ok(isolatedBlock, 'the coordinator must be registered separately from the spoof scripts');
+  // request-headers.js patches fetch/XHR on the page's own objects, so it is
+  // useless outside the MAIN world
+  assert.match(source, /'inject\/request-headers\.js'[\s\S]{0,80}world: 'MAIN'/,
+    'the request patch must run in the MAIN world to see the page\'s fetch');
 });
 
 test('the manifest declares what the dynamic registration needs', () => {

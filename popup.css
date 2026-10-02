@@ -986,4 +986,44 @@ input:checked + .slider:before {
   margin: 32px 0 32px 0;
   height: 0;
   background: none;
-} 
+}
+
+/* ---------------------------------------------------------------------------
+   Viewport sizing.
+
+   The desktop browser-action popup is sized from its own content, so the 420px
+   at the top of this file is what gives it its width. Firefox for Android
+   renders the same page in a panel as wide as the screen, where that fixed
+   width left the UI stranded in a narrow phone-shaped column on tablets.
+
+   Both rules are gated on `pointer: coarse`, which is the tablet/Android case
+   and is never true for a desktop browser-action popup. That gate matters:
+   a popup panel is sized from the document's own preferred width, so a plain
+   `min-width` query could match during the sizing pass and change the desktop
+   popup's width. With the gate, the desktop layout cannot be affected at all.
+   --------------------------------------------------------------------------- */
+
+/* Tablet and the Android panel: fill the screen instead of a 420px column. */
+@media (min-width: 480px) and (pointer: coarse) {
+  body {
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+}
+
+/* Phone narrower than the desktop popup: fill rather than overflow sideways. */
+@media (max-width: 419px) and (pointer: coarse) {
+  body {
+    width: 100%;
+  }
+
+  .container {
+    padding: 16px;
+  }
+}

@@ -692,6 +692,31 @@ class UserAgentSpoofer {
   }
 
   /**
+   * A stable, comparable description of a registration batch, used to decide
+   * whether the live registration already says what the settings say.
+   *
+   * Only the fields that change behaviour take part: two batches differing in
+   * `matches`, `excludeMatches`, `js`, `world`, `allFrames`,
+   * `matchOriginAsFallback` or `runAt` must compare unequal, or a settings
+   * change would silently fail to re-register. Everything else Firefox may
+   * report (internal ids, timestamps) is deliberately ignored.
+   */
+  static scopeSignature(scripts) {
+    return JSON.stringify(scripts
+      .map(script => ({
+        id: script.id,
+        js: script.js,
+        matches: [...(script.matches || [])].sort(),
+        excludeMatches: [...(script.excludeMatches || [])].sort(),
+        allFrames: script.allFrames === true,
+        matchOriginAsFallback: script.matchOriginAsFallback === true,
+        runAt: script.runAt || 'document_idle',
+        world: script.world || 'ISOLATED'
+      }))
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)));
+  }
+
+  /**
    * Keep the registered content scripts exactly as wide as the header layer's
    * scope. The no-op script is always registered so per-tab or late changes
    * can flip scope back on without re-navigating; unregistering everything
@@ -699,12 +724,6 @@ class UserAgentSpoofer {
    */
   async applyInjectionScope() {
     const noop = 'inject/no-op.js';
-    try {
-      await browser.scripting.unregisterContentScripts();
-    }
-    catch (e) {
-      console.error('[Unga Bunga UA] unregistering content scripts failed:', e);
-    }
 
     const { all, include, exclude } = this.injectionScope();
     const patterns = list => list.map(host => `*://*.${host}/*`);
@@ -723,7 +742,7 @@ class UserAgentSpoofer {
     const scripts = [{
       ...props,
       id: 'unga-bunga-spoof',
-      js: ['inject/main.js', 'inject/override.js'],
+      js: ['inject/main.js', 'inject/override.js', 'inject/request-headers.js'],
       world: 'MAIN'
     }, {
       ...props,
@@ -759,6 +778,33 @@ class UserAgentSpoofer {
         script.world = 'ISOLATED';
         script.matches = ['*://*/*'];
       });
+    }
+
+    // unregister + register is not atomic: between the two calls nothing is
+    // registered, and a document that starts loading inside that window runs
+    // without the content scripts for its whole life -- which is the
+    // "closed and reopened the browser and the page still leaked the real UA"
+    // report in #4. A normal startup, and a restart after an update, finds the
+    // persisted registration already matching the settings, so the rewrite is
+    // skipped entirely and that window never opens. Anything that actually
+    // moved -- scope, enabled state, noise, the script list itself -- still
+    // differs and still rewrites.
+    try {
+      const current = await browser.scripting.getRegisteredContentScripts();
+      if (UserAgentSpoofer.scopeSignature(current) === UserAgentSpoofer.scopeSignature(scripts)) {
+        return;
+      }
+    }
+    catch (e) {
+      // an unreadable registration list must never block the rewrite
+      console.error('[Unga Bunga UA] reading registered content scripts failed:', e);
+    }
+
+    try {
+      await browser.scripting.unregisterContentScripts();
+    }
+    catch (e) {
+      console.error('[Unga Bunga UA] unregistering content scripts failed:', e);
     }
 
     // Firefox validates at call time and rejects the whole batch; wipe any
